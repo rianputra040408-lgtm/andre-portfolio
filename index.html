@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Andre — Portfolio</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #080c10; --surface: #0f1520; --card: #131c2b;
+      --accent: #00e5ff; --accent3: #a259ff;
+      --text: #e8f4f8; --muted: #5a7a8a; --border: #1e2d3d;
+    }
+    body.light {
+      --bg: #f0f4f8; --surface: #ffffff; --card: #e8eef5;
+      --text: #0a0f1a; --muted: #6b8499; --border: #cdd8e3;
+    }
+    html { scroll-behavior: smooth; }
+    body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; overflow-x: hidden; transition: background 0.4s, color 0.4s; }
+    #particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .particle { position: absolute; border-radius: 50%; background: var(--accent); opacity: 0; animation: floatParticle linear infinite; }
+    @keyframes floatParticle {
+      0% { transform: translateY(100vh) scale(0); opacity: 0; }
+      10% { opacity: 0.4; } 90% { opacity: 0.1; }
+      100% { transform: translateY(-100px) scale(1); opacity: 0; }
+    }
+    nav { position: fixed; top: 0; left: 0; right: 0; padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; z-index: 100; transition: background 0.3s; }
+    nav.scrolled { background: rgba(8,12,16,0.95); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); }
+    body.light nav.scrolled { background: rgba(240,244,248,0.95); }
+    .nav-logo { font-family: 'Space Mono', monospace; font-size: 1rem; color: var(--accent); letter-spacing: 2px; }
+    .nav-right { display: flex; align-items: center; gap: 16px; }
+    .nav-links { display: flex; gap: 28px; }
+    .nav-links a { font-size: 0.8rem; color: var(--muted); text-decoration: none; letter-spacing: 2px; text-transform: uppercase; transition: color 0.2s; }
+    .nav-links a:hover { color: var(--accent); }
+    .icon-btn { background: var(--card); border: 1px solid var(--border); border-radius: 50%; width: 38px; height: 38px; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; transition: all 0.3s; color: var(--text); }
+    .icon-btn:hover { border-color: var(--accent); transform: scale(1.1); }
+    .theme-btn { border-radius: 20px; width: auto; padding: 0 14px; }
+    .music-btn.playing { border-color: var(--accent); animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(0,229,255,0.4); } 50% { box-shadow: 0 0 0 8px rgba(0,229,255,0); } }
+    .hero { min-height: 100vh; display: flex; align-items: center; padding: 120px 40px 80px; position: relative; overflow: hidden; }
+    .hero-bg { position: absolute; inset: 0; background: radial-gradient(ellipse 60% 60% at 80% 50%, rgba(0,229,255,0.07) 0%, transparent 70%), radial-gradient(ellipse 40% 40% at 20% 80%, rgba(162,89,255,0.07) 0%, transparent 60%); }
+    .hero-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(0,229,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,255,0.04) 1px, transparent 1px); background-size: 60px 60px; }
+    .hero-content { position: relative; z-index: 2; max-width: 900px; }
+    .hero-tag { font-family: 'Space Mono', monospace; font-size: 0.75rem; color: var(--accent); letter-spacing: 4px; text-transform: uppercase; margin-bottom: 24px; opacity: 0; animation: fadeUp 0.8s 0.2s forwards; }
+    .hero-name { font-size: clamp(3.5rem, 10vw, 8rem); font-weight: 800; line-height: 0.9; letter-spacing: -2px; margin-bottom: 24px; opacity: 0; animation: fadeUp 0.8s 0.4s forwards; }
+    .hero-name span { display: block; background: linear-gradient(135deg, var(--accent) 0%, var(--accent3) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .glitch { position: relative; }
+    .glitch::before, .glitch::after { content: attr(data-text); position: absolute; top: 0; left: 0; background: linear-gradient(135deg, var(--accent) 0%, var(--accent3) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .glitch::before { animation: glitch1 3s infinite; clip-path: polygon(0 0, 100% 0, 100% 35%, 0 35%); }
+    .glitch::after { animation: glitch2 3s infinite; clip-path: polygon(0 65%, 100% 65%, 100% 100%, 0 100%); }
+    @keyframes glitch1 { 0%,90%,100% { transform: translate(0); } 92% { transform: translate(-3px,1px); } 94% { transform: translate(3px,-1px); } }
+    @keyframes glitch2 { 0%,90%,100% { transform: translate(0); } 92% { transform: translate(3px,1px); } 94% { transform: translate(-3px,-1px); } }
+    .hero-desc { font-size: 1.1rem; color: var(--muted); max-width: 480px; line-height: 1.7; margin-bottom: 48px; opacity: 0; animation: fadeUp 0.8s 0.6s forwards; }
+    .hero-cta { display: flex; gap: 16px; flex-wrap: wrap; opacity: 0; animation: fadeUp 0.8s 0.8s forwards; }
+    .btn { padding: 14px 32px; font-family: 'Space Mono', monospace; font-size: 0.8rem; letter-spacing: 2px; text-transform: uppercase; text-decoration: none; border-radius: 2px; transition: all 0.3s; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; border: none; }
+    .btn-primary { background: var(--accent); color: #080c10; font-weight: 700; }
+    .btn-primary:hover { background: white; transform: translateY(-3px); box-shadow: 0 0 30px rgba(0,229,255,0.4); }
+    .btn-outline { border: 1px solid var(--border); color: var(--muted); background: transparent; }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-3px); }
+    section { padding: 100px 40px; position: relative; z-index: 1; }
+    .section-label { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--accent); letter-spacing: 4px; text-transform: uppercase; margin-bottom: 16px; }
+    .section-title { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; line-height: 1.1; letter-spacing: -1px; margin-bottom: 60px; }
+    .about { background: var(--surface); }
+    .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
+    .about-text p { color: var(--muted); line-height: 1.8; margin-bottom: 20px; }
+    .about-text p strong { color: var(--text); }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 40px; }
+    .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 24px; transition: border-color 0.3s, transform 0.3s; }
+    .stat-card:hover { border-color: var(--accent); transform: translateY(-4px); }
+    .stat-num { font-size: 2.5rem; font-weight: 800; color: var(--accent); font-family: 'Space Mono', monospace; }
+    .stat-label { font-size: 0.75rem; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-top: 4px; }
+    .about-photo { aspect-ratio: 3/4; background: var(--card); border: 1px solid var(--border); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 5rem; transition: border-color 0.3s; }
+    .about-photo:hover { border-color: var(--accent); }
+    .skills-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; }
+    .skill-card { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 32px; transition: all 0.3s; position: relative; overflow: hidden; }
+    .skill-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--line-color, var(--accent)); transform: scaleX(0); transition: transform 0.3s; }
+    .skill-card:hover::before { transform: scaleX(1); }
+    .skill-card:hover { transform: translateY(-8px); border-color: var(--line-color, var(--accent)); box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+    .skill-icon { font-size: 2.5rem; margin-bottom: 16px; }
+    .skill-name { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
+    .skill-desc { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+    .hobbies { background: var(--surface); }
+    .hobby-list { display: flex; flex-direction: column; gap: 2px; }
+    .hobby-item { display: flex; align-items: center; justify-content: space-between; padding: 28px 32px; background: var(--card); border: 1px solid var(--border); border-radius: 2px; font-size: clamp(1.2rem, 3vw, 2rem); font-weight: 800; letter-spacing: -0.5px; transition: all 0.4s cubic-bezier(0.23,1,0.32,1); }
+    .hobby-item:hover { background: var(--surface); border-color: var(--accent); color: var(--accent); padding-left: 52px; transform: scale(1.01); }
+    .hobby-num { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--muted); letter-spacing: 2px; }
+    .hobby-arrow { opacity: 0; transition: opacity 0.3s; color: var(--accent); font-size: 1.5rem; }
+    .hobby-item:hover .hobby-arrow { opacity: 1; }
+    .contact-inner { max-width: 600px; margin: 0 auto; text-align: center; }
+    .contact-inner p { color: var(--muted); margin-bottom: 48px; line-height: 1.7; }
+    .contact-links { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
+    .sosmed-float { position: fixed; right: 24px; bottom: 100px; display: flex; flex-direction: column; gap: 12px; z-index: 200; }
+    .sosmed-btn { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; text-decoration: none; transition: all 0.3s; border: 1px solid var(--border); background: var(--card); position: relative; }
+    .sosmed-btn:hover { transform: scale(1.2) translateX(-4px); border-color: var(--accent); }
+    .sosmed-btn .tooltip { position: absolute; right: 56px; background: var(--card); border: 1px solid var(--border); padding: 4px 12px; border-radius: 4px; font-family: 'Space Mono', monospace; font-size: 0.65rem; letter-spacing: 1px; white-space: nowrap; color: var(--text); opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+    .sosmed-btn:hover .tooltip { opacity: 1; }
+    .wa-btn { position: fixed; left: 24px; bottom: 24px; background: #25D366; color: white; border: none; border-radius: 50px; padding: 14px 24px; font-family: 'Space Mono', monospace; font-size: 0.75rem; letter-spacing: 1px; cursor: pointer; text-decoration: none; display: flex; align-items: center; gap: 8px; z-index: 200; box-shadow: 0 4px 20px rgba(37,211,102,0.4); transition: all 0.3s; }
+    .wa-btn:hover { transform: translateY(-4px); box-shadow: 0 8px 30px rgba(37,211,102,0.5); }
+    footer { padding: 32px 40px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: relative; z-index: 1; }
+    footer p { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--muted); letter-spacing: 2px; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+    .reveal { opacity: 0; transform: translateY(40px); transition: opacity 0.8s ease, transform 0.8s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    @media (max-width: 768px) {
+      nav { padding: 16px 20px; } .nav-links { display: none; }
+      .hero { padding: 100px 20px 60px; } section { padding: 60px 20px; }
+      .about-grid { grid-template-columns: 1fr; gap: 40px; }
+      footer { flex-direction: column; gap: 12px; text-align: center; }
+      .wa-btn span { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="particles"></div>
+
+  <nav id="nav">
+    <div class="nav-logo">ANDRE_</div>
+    <div class="nav-right">
+      <div class="nav-links">
+        <a href="#about">About</a>
+        <a href="#skills">Skills</a>
+        <a href="#hobbies">Hobbies</a>
+        <a href="#contact">Contact</a>
+      </div>
+      <button class="icon-btn music-btn" id="musicBtn">🎵</button>
+      <button class="icon-btn theme-btn" id="themeBtn">🌙</button>
+    </div>
+  </nav>
+
+  <div class="sosmed-float">
+    <a href="https://www.tiktok.com/@andrian_putra04" class="sosmed-btn" target="_blank">
+      🎵<span class="tooltip">TIKTOK</span>
+    </a>
+  </div>
+
+  <a href="https://api.whatsapp.com/send?phone=6288989099751" class="wa-btn" target="_blank">
+    💬 <span>WhatsApp Me</span>
+  </a>
+
+  <section class="hero" id="home">
+    <div class="hero-bg"></div>
+    <div class="hero-grid"></div>
+    <div class="hero-content">
+      <div class="hero-tag">// Hello World — Portfolio v2.0</div>
+      <h1 class="hero-name">
+        Hi, I'm<br>
+        <span class="glitch" data-text="Andre">Andre</span>
+      </h1>
+      <p class="hero-desc">A curious 18-year-old from <strong>Indonesia</strong> passionate about electronics, coding, automotive, and connecting with people.</p>
+      <div class="hero-cta">
+        <a href="#about" class="btn btn-primary">About Me 👋</a>
+        <a href="#contact" class="btn btn-outline">Get In Touch →</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="about" id="about">
+    <div class="about-grid">
+      <div class="about-photo reveal">👤</div>
+      <div class="about-text reveal">
+        <div class="section-label">// 001 — About</div>
+        <h2 class="section-title">Who Am I?</h2>
+        <p>Hey! I'm <strong>Andre</strong>, an 18-year-old from <strong>Indonesia</strong> with a big passion for technology and life.</p>
+        <p>I love exploring how things work — from <strong>electronics circuits</strong> to <strong>writing code</strong>, from <strong>car engines</strong> to <strong>meeting new people</strong>.</p>
+        <p>Currently learning English and growing every single day. Every mistake is a step forward! 💪</p>
+        <div class="stats">
+          <div class="stat-card"><div class="stat-num">18</div><div class="stat-label">Years Old</div></div>
+          <div class="stat-card"><div class="stat-num">4</div><div class="stat-label">Main Hobbies</div></div>
+          <div class="stat-card"><div class="stat-num">🇮🇩</div><div class="stat-label">Indonesia</div></div>
+          <div class="stat-card"><div class="stat-num">∞</div><div class="stat-label">Curiosity</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="skills">
+    <div class="section-label reveal">// 002 — Skills</div>
+    <h2 class="section-title reveal">What I Do</h2>
+    <div class="skills-grid">
+      <div class="skill-card reveal" style="--line-color:#00e5ff;"><div class="skill-icon">💻</div><div class="skill-name">Coding</div><div class="skill-desc">Passionate about writing code and building things from scratch. Always learning new technologies.</div></div>
+      <div class="skill-card reveal" style="--line-color:#ff6b35;"><div class="skill-icon">⚡</div><div class="skill-name">Electronics</div><div class="skill-desc">Love working with circuits and understanding how electronic devices work at a fundamental level.</div></div>
+      <div class="skill-card reveal" style="--line-color:#a259ff;"><div class="skill-icon">🔧</div><div class="skill-name">Automotive</div><div class="skill-desc">Fascinated by engines and how vehicles work. Enjoy learning about automotive mechanics.</div></div>
+      <div class="skill-card reveal" style="--line-color:#00ff88;"><div class="skill-icon">🤝</div><div class="skill-name">Socializing</div><div class="skill-desc">Great at connecting with people. Currently leveling up my English! 😄</div></div>
+    </div>
+  </section>
+
+  <section class="hobbies" id="hobbies">
+    <div class="section-label reveal">// 003 — Hobbies</div>
+    <h2 class="section-title reveal">What I Love</h2>
+    <div class="hobby-list">
+      <div class="hobby-item reveal"><span class="hobby-num">01</span><span>Electronics & Circuits</span><span class="hobby-arrow">→</span></div>
+      <div class="hobby-item reveal"><span class="hobby-num">02</span><span>Coding & Building</span><span class="hobby-arrow">→</span></div>
+      <div class="hobby-item reveal"><span class="hobby-num">03</span><span>Automotive & Engines</span><span class="hobby-arrow">→</span></div>
+      <div class="hobby-item reveal"><span class="hobby-num">04</span><span>Socializing & Networking</span><span class="hobby-arrow">→</span></div>
+    </div>
+  </section>
+
+  <section id="contact">
+    <div class="contact-inner">
+      <div class="section-label reveal">// 004 — Contact</div>
+      <h2 class="section-title reveal">Let's Connect!</h2>
+      <p class="reveal">Always open to new connections and collaborations. Don't hesitate to reach out! 😊</p>
+      <div class="contact-links reveal">
+        <a href="https://api.whatsapp.com/send?phone=6288989099751" class="btn btn-primary" target="_blank">💬 WhatsApp</a>
+        <a href="https://www.tiktok.com/@andrian_putra04" class="btn btn-outline" target="_blank">🎵 TikTok</a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>© 2026 — ANDRE</p>
+    <p>MADE WITH ❤️ IN INDONESIA</p>
+  </footer>
+
+  <script>
+    // PARTICLES
+    const container = document.getElementById('particles');
+    for (let i = 0; i < 30; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      const size = Math.random() * 4 + 1;
+      p.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;animation-duration:${Math.random()*15+10}s;animation-delay:${Math.random()*10}s;`;
+      container.appendChild(p);
+    }
+
+    // SCROLL NAV
+    window.addEventListener('scroll', () => {
+      document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 50);
+    });
+
+    // REVEAL
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((e, i) => {
+        if (e.isIntersecting) setTimeout(() => e.target.classList.add('visible'), i * 100);
+      });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+    // THEME
+    const themeBtn = document.getElementById('themeBtn');
+    themeBtn.addEventListener('click', () => {
+      document.body.classList.toggle('light');
+      themeBtn.textContent = document.body.classList.contains('light') ? '☀️' : '🌙';
+    });
+
+    // MUSIC
+    const musicBtn = document.getElementById('musicBtn');
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    let playing = false;
+    function playNote() {
+      if (!playing) return;
+      const notes = [261,293,329,349,392,440,493];
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = notes[Math.floor(Math.random()*notes.length)];
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 0.1);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.8);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 1);
+      setTimeout(playNote, 600 + Math.random() * 800);
+    }
+    musicBtn.addEventListener('click', () => {
+      if (ctx.state === 'suspended') ctx.resume();
+      playing = !playing;
+      musicBtn.classList.toggle('playing', playing);
+      musicBtn.textContent = playing ? '🔊' : '🎵';
+      if (playing) playNote();
+    });
+  </script>
+</body>
+                                                                     </html>
