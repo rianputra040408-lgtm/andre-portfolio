@@ -1,11 +1,13 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ANDRE_VISION // FACE AI</title>
+  <title>ANDRE_VISION // HUMAN DETECTOR</title>
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap" rel="stylesheet"/>
-  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -31,8 +33,8 @@
       flex-shrink: 0;
     }
     .logo { font-family: 'Orbitron', monospace; font-size: 0.85rem; font-weight: 900; color: #00ff41; letter-spacing: 3px; text-shadow: 0 0 10px #00ff41; }
-    .logo span { color: #00aaff; }
-    .topbar-right { font-size: 0.7rem; color: #003310; display: flex; gap: 12px; align-items: center; }
+    .logo span { color: #ff0033; }
+    .topbar-right { font-size: 0.7rem; display: flex; gap: 12px; align-items: center; }
     .dot { width: 7px; height: 7px; border-radius: 50%; background: #00ff41; box-shadow: 0 0 6px #00ff41; animation: blink 1.5s infinite; display: inline-block; margin-right: 4px; }
     @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.2} }
     #clock { font-family: 'Orbitron', monospace; font-size: 0.72rem; color: #00ff41; }
@@ -45,23 +47,74 @@
       position: absolute; inset: 0;
       width: 100%; height: 100%;
       object-fit: cover;
-      transform: scaleX(-1);
       display: none;
     }
     canvas#overlay {
       position: absolute; inset: 0;
       width: 100%; height: 100%;
     }
-    .hud { position: absolute; width: 24px; height: 24px; border-color: #00ff41; border-style: solid; opacity: 0.5; }
+
+    /* HUD */
+    .hud { position: absolute; width: 24px; height: 24px; border-color: #00ff41; border-style: solid; opacity: 0.4; }
     .hud-tl { top: 12px; left: 12px; border-width: 2px 0 0 2px; }
     .hud-tr { top: 12px; right: 12px; border-width: 2px 2px 0 0; }
-    .hud-bl { bottom: 100px; left: 12px; border-width: 0 0 2px 2px; }
-    .hud-br { bottom: 100px; right: 12px; border-width: 0 2px 2px 0; }
+    .hud-bl { bottom: 80px; left: 12px; border-width: 0 0 2px 2px; }
+    .hud-br { bottom: 80px; right: 12px; border-width: 0 2px 2px 0; }
+
     .fps-display {
       position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
       font-family: 'Orbitron', monospace; font-size: 0.65rem;
-      color: #00ff41; letter-spacing: 2px; opacity: 0.7;
+      color: #00ff41; letter-spacing: 2px; opacity: 0.6;
     }
+
+    /* ALERT */
+    .human-alert {
+      position: absolute; top: 50%; left: 50%; 
+      transform: translate(-50%, -50%);
+      font-family: 'Orbitron', monospace;
+      font-size: clamp(2rem, 8vw, 4rem);
+      font-weight: 900;
+      letter-spacing: 8px;
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: none;
+      text-align: center;
+    }
+    .human-alert.show { opacity: 1; }
+    .human-alert.detected {
+      color: #ff0033;
+      text-shadow: 0 0 30px #ff0033, 0 0 60px #ff0033;
+      animation: alertPulse 0.5s infinite;
+    }
+    .human-alert.clear {
+      color: #00ff41;
+      text-shadow: 0 0 20px #00ff41;
+    }
+    @keyframes alertPulse {
+      0%,100%{transform:translate(-50%,-50%) scale(1)}
+      50%{transform:translate(-50%,-50%) scale(1.05)}
+    }
+
+    /* COUNT DISPLAY */
+    .count-display {
+      position: absolute; top: 40px; right: 16px;
+      text-align: right;
+    }
+    .count-num {
+      font-family: 'Orbitron', monospace;
+      font-size: 2.5rem;
+      font-weight: 900;
+      color: #ff0033;
+      text-shadow: 0 0 20px #ff0033;
+      line-height: 1;
+    }
+    .count-label {
+      font-size: 0.6rem;
+      color: #003310;
+      letter-spacing: 3px;
+    }
+
+    /* PLACEHOLDER */
     .placeholder {
       position: absolute; inset: 0;
       display: flex; flex-direction: column;
@@ -81,49 +134,40 @@
     }
     .loading.show { display: flex; }
     .loading-title { font-family: 'Orbitron', monospace; font-size: 0.9rem; color: #00ff41; letter-spacing: 3px; }
-    .loading-bar-wrap { width: 240px; height: 8px; background: #001100; border: 1px solid #00ff41; }
+    .loading-bar-wrap { width: 220px; height: 6px; background: #001100; border: 1px solid #00ff41; }
     .loading-bar { height: 100%; background: #00ff41; box-shadow: 0 0 8px #00ff41; width: 0; transition: width 0.4s; }
     .loading-sub { font-size: 0.7rem; color: #003310; letter-spacing: 2px; }
 
-    /* INFO PANEL */
-    .info-panel {
+    /* INFO BAR */
+    .info-bar {
       position: absolute; bottom: 0; left: 0; right: 0;
       background: rgba(2,8,2,0.92);
       border-top: 1px solid #0a1f0a;
-      padding: 10px 12px;
-      display: none; flex-direction: column; gap: 8px;
+      padding: 8px 16px;
+      display: none;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.7rem;
     }
-    .info-panel.show { display: flex; }
-
-    /* EMOTION BAR */
-    .emotion-row { display: flex; gap: 8px; flex-wrap: wrap; }
-    .emotion-item {
-      display: flex; flex-direction: column; gap: 3px;
-      flex: 1; min-width: 60px;
-    }
-    .emotion-label { font-size: 0.6rem; color: #003310; letter-spacing: 1px; display: flex; justify-content: space-between; }
-    .emotion-bar-wrap { height: 4px; background: #001100; border-radius: 2px; overflow: hidden; }
-    .emotion-bar { height: 100%; border-radius: 2px; transition: width 0.3s; }
-
-    /* INFO ROW */
-    .info-row { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.68rem; }
-    .info-item { display: flex; gap: 5px; align-items: center; }
+    .info-bar.show { display: flex; }
+    .info-item { display: flex; gap: 6px; align-items: center; }
     .info-label { color: #003310; }
     .info-val { color: #00ff41; font-weight: bold; }
-    .info-val.blue { color: #00aaff; }
+    .info-val.red { color: #ff0033; }
     .info-val.yellow { color: #ffcc00; }
-    .info-val.red { color: #ff4444; }
-    .swatch { width: 14px; height: 14px; border: 1px solid #0a1f0a; display: inline-block; border-radius: 2px; }
 
-    /* DOMINANT EMOTION */
-    .dominant-emotion {
-      text-align: center;
-      font-family: 'Orbitron', monospace;
-      font-size: 1.2rem;
-      font-weight: 900;
-      letter-spacing: 3px;
-      padding: 4px 0;
-      transition: all 0.3s;
+    /* SCAN LINE ANIMATION */
+    .scan-line {
+      position: absolute; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #00ff41, transparent);
+      opacity: 0;
+      animation: scanAnim 3s linear infinite;
+      pointer-events: none;
+    }
+    @keyframes scanAnim {
+      0% { top: 0; opacity: 0.6; }
+      100% { top: 100%; opacity: 0; }
     }
 
     .bottom-bar {
@@ -143,61 +187,68 @@
     .btn-start:hover { background: #fff; }
     .btn-stop { background: transparent; border: 1px solid #ff0033; color: #ff0033; }
     .btn-flip { background: transparent; border: 1px solid #00aaff; color: #00aaff; }
+
     .statusbar {
       background: #00ff41; color: #000;
       font-size: 0.62rem; padding: 2px 16px;
       display: flex; justify-content: space-between;
       letter-spacing: 2px; flex-shrink: 0;
     }
+
+    /* FLASH when human detected */
+    @keyframes flashBorder {
+      0%,100%{box-shadow:none}
+      50%{box-shadow:inset 0 0 30px rgba(255,0,51,0.3)}
+    }
+    .cam-wrap.detected { animation: flashBorder 0.5s infinite; }
   </style>
 </head>
 <body>
 
 <div class="topbar">
-  <div class="logo">ANDRE<span>_VISION</span> // FACE AI</div>
+  <div class="logo">ANDRE<span>_VISION</span> // HUMAN</div>
   <div class="topbar-right">
     <span><span class="dot"></span>READY</span>
     <span id="clock"></span>
   </div>
 </div>
 
-<div class="cam-wrap">
+<div class="cam-wrap" id="camWrap">
   <video id="video" autoplay playsinline muted></video>
   <canvas id="overlay"></canvas>
+
   <div class="hud hud-tl"></div>
   <div class="hud hud-tr"></div>
   <div class="hud hud-bl"></div>
   <div class="hud hud-br"></div>
+  <div class="scan-line"></div>
   <div class="fps-display" id="fps">FPS: --</div>
 
+  <!-- HUMAN COUNT -->
+  <div class="count-display" id="countDisplay" style="display:none">
+    <div class="count-num" id="countNum">0</div>
+    <div class="count-label">HUMAN(S)</div>
+  </div>
+
+  <!-- ALERT TEXT -->
+  <div class="human-alert" id="humanAlert"></div>
+
   <div class="placeholder" id="placeholder">
-    <div class="icon">📷</div>
+    <div class="icon">👁️</div>
     <p>TAP START</p>
-    <p style="font-size:0.65rem;opacity:0.5">ALLOW CAMERA ACCESS</p>
+    <p style="font-size:0.65rem;opacity:0.5">HUMAN DETECTION MODE</p>
   </div>
 
   <div class="loading" id="loading">
-    <div class="loading-title">⚡ LOADING AI MODELS</div>
+    <div class="loading-title">⚡ LOADING AI</div>
     <div class="loading-bar-wrap"><div class="loading-bar" id="loadBar"></div></div>
     <div class="loading-sub" id="loadSub">Initializing...</div>
   </div>
 
-  <!-- INFO PANEL -->
-  <div class="info-panel" id="infoPanel">
-    <!-- DOMINANT EMOTION -->
-    <div class="dominant-emotion" id="dominantEmotion">--</div>
-
-    <!-- EMOTION BARS -->
-    <div class="emotion-row" id="emotionBars"></div>
-
-    <!-- FACE INFO -->
-    <div class="info-row">
-      <div class="info-item"><span class="info-label">FACE</span><span class="info-val" id="iDetected">--</span></div>
-      <div class="info-item"><span class="info-label">AGE</span><span class="info-val blue" id="iAge">--</span></div>
-      <div class="info-item"><span class="info-label">GENDER</span><span class="info-val blue" id="iGender">--</span></div>
-      <div class="info-item"><span class="swatch" id="swatch"></span><span class="info-val red" id="iColor">--</span></div>
-      <div class="info-item"><span class="info-label">TONE</span><span class="info-val yellow" id="iTone">--</span></div>
-    </div>
+  <div class="info-bar" id="infoBar">
+    <div class="info-item"><span class="info-label">STATUS</span><span class="info-val" id="iStatus">SCANNING</span></div>
+    <div class="info-item"><span class="info-label">HUMAN</span><span class="info-val red" id="iHuman">0</span></div>
+    <div class="info-item"><span class="info-label">CONF</span><span class="info-val yellow" id="iConf">--</span></div>
   </div>
 </div>
 
@@ -208,7 +259,7 @@
 </div>
 
 <div class="statusbar">
-  <span>ANDRE_VISION // EMOTION TRACKER</span>
+  <span>ANDRE_VISION // HUMAN DETECTOR</span>
   <span id="status">IDLE</span>
 </div>
 
@@ -218,67 +269,30 @@
   const video = document.getElementById('video');
   const canvas = document.getElementById('overlay');
   const ctx = canvas.getContext('2d');
-  let stream = null, running = false, modelsLoaded = false;
+  let stream = null, running = false, model = null;
   let facingMode = 'user';
   let frameCount = 0, lastTime = Date.now();
   let detectionInterval = null;
-  let lastDetections = null;
+  let lastPredictions = [];
 
-  // EMOTION CONFIG
-  const emotions = ['happy','sad','angry','surprised','disgusted','fearful','neutral'];
-  const emotionEmoji = {happy:'😊',sad:'😢',angry:'😠',surprised:'😲',disgusted:'🤢',fearful:'😨',neutral:'😐'};
-  const emotionColors = {happy:'#00ff41',sad:'#00aaff',angry:'#ff0033',surprised:'#ffcc00',disgusted:'#aa44ff',fearful:'#ff6600',neutral:'#888888'};
-
-  // BUILD EMOTION BARS
-  function buildEmotionBars() {
-    const container = document.getElementById('emotionBars');
-    container.innerHTML = '';
-    emotions.forEach(e => {
-      const div = document.createElement('div');
-      div.className = 'emotion-item';
-      div.innerHTML = `
-        <div class="emotion-label">
-          <span>${emotionEmoji[e]} ${e.toUpperCase()}</span>
-          <span id="pct_${e}">0%</span>
-        </div>
-        <div class="emotion-bar-wrap">
-          <div class="emotion-bar" id="bar_${e}" style="background:${emotionColors[e]};width:0%"></div>
-        </div>
-      `;
-      container.appendChild(div);
-    });
-  }
-  buildEmotionBars();
-
-  // LOAD MODELS
-  async function loadModels() {
+  // LOAD MODEL
+  async function loadModel() {
     const loading = document.getElementById('loading');
     const loadBar = document.getElementById('loadBar');
     const loadSub = document.getElementById('loadSub');
     loading.classList.add('show');
 
-    const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
     try {
-      loadSub.textContent = 'Loading face detector...';
-      loadBar.style.width = '25%';
-      await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-
-      loadSub.textContent = 'Loading age & gender...';
-      loadBar.style.width = '55%';
-      await faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL);
-
-      loadSub.textContent = 'Loading emotion recognition...';
-      loadBar.style.width = '85%';
-      await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
-
+      loadSub.textContent = 'Loading COCO-SSD model...';
+      loadBar.style.width = '30%';
+      // Pakai lite version — paling ringan!
+      model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
       loadBar.style.width = '100%';
-      loadSub.textContent = '✓ All models loaded!';
-      modelsLoaded = true;
-      setTimeout(() => loading.classList.remove('show'), 800);
-      document.getElementById('status').textContent = 'MODELS READY';
+      loadSub.textContent = '✓ Model ready!';
+      setTimeout(() => loading.classList.remove('show'), 600);
+      document.getElementById('status').textContent = 'MODEL READY';
     } catch(e) {
       loadSub.textContent = '✗ Error: ' + e.message;
-      document.getElementById('status').textContent = 'ERROR';
     }
   }
 
@@ -286,7 +300,7 @@
     try {
       document.getElementById('placeholder').style.display = 'none';
       document.getElementById('status').textContent = 'STARTING...';
-      if(!modelsLoaded) await loadModels();
+      if(!model) await loadModel();
       if(stream) stream.getTracks().forEach(t => t.stop());
       stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode, width: 320, height: 240 }, audio: false
@@ -295,10 +309,12 @@
       video.style.display = 'block';
       await video.play();
       running = true;
-      document.getElementById('infoPanel').classList.add('show');
-      document.getElementById('status').textContent = 'DETECTING...';
+      document.getElementById('infoBar').classList.add('show');
+      document.getElementById('countDisplay').style.display = 'block';
+      document.getElementById('status').textContent = 'SCANNING...';
       if(detectionInterval) clearInterval(detectionInterval);
-      detectionInterval = setInterval(detect, 250);
+      // Detect tiap 400ms — ringan & responsif
+      detectionInterval = setInterval(detect, 400);
       drawLoop();
     } catch(e) {
       document.getElementById('status').textContent = 'ERROR';
@@ -313,7 +329,10 @@
     video.style.display = 'none';
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     document.getElementById('placeholder').style.display = 'flex';
-    document.getElementById('infoPanel').classList.remove('show');
+    document.getElementById('infoBar').classList.remove('show');
+    document.getElementById('countDisplay').style.display = 'none';
+    document.getElementById('humanAlert').className = 'human-alert';
+    document.getElementById('camWrap').classList.remove('detected');
     document.getElementById('status').textContent = 'IDLE';
     document.getElementById('fps').textContent = 'FPS: --';
   }
@@ -327,94 +346,78 @@
     if(!running) return;
     canvas.width = video.videoWidth || 320;
     canvas.height = video.videoHeight || 240;
-    ctx.save();
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    ctx.restore();
+    if(lastPredictions.length > 0) drawPredictions();
     frameCount++;
     const now = Date.now();
     if(now - lastTime >= 1000) {
       document.getElementById('fps').textContent = 'FPS: ' + frameCount;
       frameCount = 0; lastTime = now;
     }
-    if(lastDetections) drawDetections();
     requestAnimationFrame(drawLoop);
   }
 
   async function detect() {
-    if(!running || video.readyState < 2) return;
+    if(!running || !model || video.readyState < 2) return;
     try {
-      const results = await faceapi
-        .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.4 }))
-        .withAgeAndGender()
-        .withFaceExpressions();
-      lastDetections = results;
-      updateInfo(results);
+      const predictions = await model.detect(video);
+      // Filter hanya manusia
+      lastPredictions = predictions.filter(p => p.class === 'person');
+      updateInfo(lastPredictions);
     } catch(e) {}
   }
 
-  function updateInfo(results) {
-    if(!results || results.length === 0) {
-      document.getElementById('iDetected').textContent = 'NO';
-      document.getElementById('dominantEmotion').textContent = '--';
-      document.getElementById('dominantEmotion').style.color = '#003310';
-      emotions.forEach(e => {
-        document.getElementById('bar_' + e).style.width = '0%';
-        document.getElementById('pct_' + e).textContent = '0%';
-      });
-      return;
+  function updateInfo(humans) {
+    const count = humans.length;
+    const alert = document.getElementById('humanAlert');
+    const camWrap = document.getElementById('camWrap');
+    const countNum = document.getElementById('countNum');
+
+    countNum.textContent = count;
+    document.getElementById('iHuman').textContent = count;
+
+    if(count > 0) {
+      // HUMAN DETECTED!
+      const bestConf = Math.round(Math.max(...humans.map(h => h.score)) * 100);
+      document.getElementById('iConf').textContent = bestConf + '%';
+      document.getElementById('iStatus').textContent = 'HUMAN DETECTED!';
+      document.getElementById('iStatus').style.color = '#ff0033';
+
+      alert.textContent = '⚠ HUMAN';
+      alert.className = 'human-alert show detected';
+      camWrap.classList.add('detected');
+    } else {
+      // CLEAR
+      document.getElementById('iConf').textContent = '--';
+      document.getElementById('iStatus').textContent = 'SCANNING...';
+      document.getElementById('iStatus').style.color = '#00ff41';
+
+      alert.textContent = '✓ CLEAR';
+      alert.className = 'human-alert show clear';
+      camWrap.classList.remove('detected');
+
+      // Hide clear text after 1s
+      setTimeout(() => {
+        if(document.getElementById('iHuman').textContent === '0') {
+          alert.className = 'human-alert';
+        }
+      }, 1000);
     }
-
-    document.getElementById('iDetected').textContent = results.length + ' ✓';
-    const d = results[0];
-
-    // Age & Gender
-    document.getElementById('iAge').textContent = Math.round(d.age) + ' y/o';
-    document.getElementById('iGender').textContent = d.gender.toUpperCase();
-
-    // Emotions
-    const exp = d.expressions;
-    const dominant = Object.entries(exp).sort((a,b) => b[1]-a[1])[0];
-
-    // Update dominant
-    const domEl = document.getElementById('dominantEmotion');
-    domEl.textContent = emotionEmoji[dominant[0]] + ' ' + dominant[0].toUpperCase();
-    domEl.style.color = emotionColors[dominant[0]];
-    domEl.style.textShadow = '0 0 15px ' + emotionColors[dominant[0]];
-
-    // Update bars
-    emotions.forEach(e => {
-      const pct = Math.round((exp[e] || 0) * 100);
-      document.getElementById('bar_' + e).style.width = pct + '%';
-      document.getElementById('pct_' + e).textContent = pct + '%';
-    });
   }
 
-  function drawDetections() {
-    if(!lastDetections) return;
-    const scaleX = canvas.width / (video.videoWidth || 320);
-    const scaleY = canvas.height / (video.videoHeight || 240);
+  function drawPredictions() {
+    lastPredictions.forEach(p => {
+      const [x, y, w, h] = p.bbox;
+      const conf = Math.round(p.score * 100);
 
-    lastDetections.forEach(d => {
-      const box = d.detection.box;
-      const x = canvas.width - (box.x + box.width) * scaleX;
-      const y = box.y * scaleY;
-      const w = box.width * scaleX;
-      const h = box.height * scaleY;
-
-      const exp = d.expressions;
-      const dominant = Object.entries(exp).sort((a,b) => b[1]-a[1])[0];
-      const color = emotionColors[dominant[0]] || '#00ff41';
-
-      // Glow box
-      ctx.shadowBlur = 16; ctx.shadowColor = color;
-      ctx.strokeStyle = color; ctx.lineWidth = 2;
+      // Red glow box
+      ctx.shadowBlur = 20; ctx.shadowColor = '#ff0033';
+      ctx.strokeStyle = '#ff0033'; ctx.lineWidth = 2;
       ctx.strokeRect(x, y, w, h);
       ctx.shadowBlur = 0;
 
       // Corner brackets
-      const cs = 14; ctx.lineWidth = 3; ctx.strokeStyle = color;
+      const cs = 16; ctx.lineWidth = 3; ctx.strokeStyle = '#ff0033';
       [[x,y,cs,0,0,cs],[x+w,y,-cs,0,0,cs],[x,y+h,cs,0,0,-cs],[x+w,y+h,-cs,0,0,-cs]]
         .forEach(([px,py,dx1,dy1,dx2,dy2]) => {
           ctx.beginPath();
@@ -422,44 +425,34 @@
           ctx.stroke();
         });
 
-      // Label
-      const age = Math.round(d.age);
-      const gender = d.gender.toUpperCase();
-      const emoji = emotionEmoji[dominant[0]];
-      const label = `${gender} ~${age}yr ${emoji} ${dominant[0].toUpperCase()}`;
+      // Scan line inside box
+      ctx.strokeStyle = 'rgba(255,0,51,0.2)';
+      ctx.lineWidth = 1;
+      for(let i=y; i<y+h; i+=8) {
+        ctx.beginPath(); ctx.moveTo(x,i); ctx.lineTo(x+w,i); ctx.stroke();
+      }
 
-      ctx.fillStyle = 'rgba(0,0,0,0.8)';
-      ctx.fillRect(x, y - 22, w, 20);
-      ctx.fillStyle = color;
-      ctx.font = 'bold 10px Share Tech Mono';
-      ctx.shadowBlur = 4; ctx.shadowColor = color;
-      ctx.fillText(label, x + 4, y - 6);
+      // Label
+      ctx.fillStyle = 'rgba(0,0,0,0.85)';
+      ctx.fillRect(x, y - 24, 120, 22);
+      ctx.fillStyle = '#ff0033';
+      ctx.font = 'bold 11px Share Tech Mono';
+      ctx.shadowBlur = 6; ctx.shadowColor = '#ff0033';
+      ctx.fillText(`⚠ HUMAN ${conf}%`, x + 4, y - 7);
       ctx.shadowBlur = 0;
 
-      // Color sample
-      try {
-        const sx = Math.max(0, Math.round(x + w*0.3));
-        const sy = Math.max(0, Math.round(y + h*0.25));
-        const sw = Math.max(1, Math.round(w*0.15));
-        const sh = Math.max(1, Math.round(h*0.15));
-        const data = ctx.getImageData(sx, sy, sw, sh).data;
-        let r=0,g=0,b=0,c=0;
-        for(let i=0;i<data.length;i+=4){r+=data[i];g+=data[i+1];b+=data[i+2];c++;}
-        if(c){
-          r=Math.round(r/c);g=Math.round(g/c);b=Math.round(b/c);
-          const hex='#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
-          const br=Math.round((r*299+g*587+b*114)/1000);
-          const tone=br>200?'VERY LIGHT':br>160?'LIGHT':br>120?'MEDIUM':br>80?'MED DARK':br>50?'DARK':'VERY DARK';
-          document.getElementById('iColor').textContent=hex.toUpperCase();
-          document.getElementById('iTone').textContent=tone;
-          document.getElementById('swatch').style.background=hex;
-        }
-      } catch(e) {}
+      // Center crosshair
+      const cx = x + w/2; const cy = y + h/2;
+      ctx.strokeStyle = 'rgba(255,0,51,0.6)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(cx-15,cy); ctx.lineTo(cx+15,cy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx,cy-15); ctx.lineTo(cx,cy+15); ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx,cy,6,0,Math.PI*2); ctx.stroke();
     });
   }
 
   // AUTO LOAD
-  loadModels();
+  loadModel();
 </script>
 </body>
 </html>
