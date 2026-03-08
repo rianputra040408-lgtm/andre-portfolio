@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ANDRE_VISION // FACE</title>
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap" rel="stylesheet"/>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -23,8 +23,6 @@
       background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.012) 2px, rgba(0,255,65,0.012) 4px);
       pointer-events: none; z-index: 9999;
     }
-
-    /* TOPBAR */
     .topbar {
       background: #020a02;
       border-bottom: 1px solid #0a1f0a;
@@ -39,12 +37,9 @@
     @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.2} }
     #clock { font-family: 'Orbitron', monospace; font-size: 0.72rem; color: #00ff41; }
 
-    /* CAMERA */
     .cam-wrap {
-      position: relative;
-      flex: 1;
-      background: #000;
-      overflow: hidden;
+      position: relative; flex: 1;
+      background: #000; overflow: hidden;
     }
     video {
       position: absolute; inset: 0;
@@ -56,17 +51,17 @@
     canvas#overlay {
       position: absolute; inset: 0;
       width: 100%; height: 100%;
-      transform: scaleX(-1);
     }
-
-    /* HUD CORNERS */
     .hud { position: absolute; width: 24px; height: 24px; border-color: #00ff41; border-style: solid; opacity: 0.5; }
     .hud-tl { top: 12px; left: 12px; border-width: 2px 0 0 2px; }
     .hud-tr { top: 12px; right: 12px; border-width: 2px 2px 0 0; }
-    .hud-bl { bottom: 60px; left: 12px; border-width: 0 0 2px 2px; }
-    .hud-br { bottom: 60px; right: 12px; border-width: 0 2px 2px 0; }
-
-    /* PLACEHOLDER */
+    .hud-bl { bottom: 70px; left: 12px; border-width: 0 0 2px 2px; }
+    .hud-br { bottom: 70px; right: 12px; border-width: 0 2px 2px 0; }
+    .fps-display {
+      position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+      font-family: 'Orbitron', monospace; font-size: 0.65rem;
+      color: #00ff41; letter-spacing: 2px; opacity: 0.7;
+    }
     .placeholder {
       position: absolute; inset: 0;
       display: flex; flex-direction: column;
@@ -76,39 +71,39 @@
     .placeholder .icon { font-size: 4rem; opacity: 0.3; }
     .placeholder p { font-size: 0.8rem; letter-spacing: 2px; }
 
-    /* FPS */
-    .fps {
-      position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
-      font-family: 'Orbitron', monospace; font-size: 0.65rem;
-      color: #00ff41; letter-spacing: 2px; opacity: 0.6;
+    /* LOADING */
+    .loading {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.92);
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 16px; text-align: center;
     }
+    .loading.show { display: flex; }
+    .loading-title { font-family: 'Orbitron', monospace; font-size: 0.9rem; color: #00ff41; letter-spacing: 3px; }
+    .loading-bar-wrap { width: 200px; height: 6px; background: #001100; border: 1px solid #00ff41; }
+    .loading-bar { height: 100%; background: #00ff41; box-shadow: 0 0 8px #00ff41; width: 0; transition: width 0.3s; }
+    .loading-sub { font-size: 0.7rem; color: #003310; letter-spacing: 2px; }
 
-    /* INFO OVERLAY - bottom of camera */
+    /* INFO */
     .info-overlay {
       position: absolute; bottom: 0; left: 0; right: 0;
-      background: rgba(2,8,2,0.85);
+      background: rgba(2,8,2,0.9);
       border-top: 1px solid #0a1f0a;
-      padding: 8px 16px;
-      display: flex; gap: 20px; flex-wrap: wrap;
-      font-size: 0.7rem;
+      padding: 8px 12px;
+      display: none;
+      flex-wrap: wrap; gap: 12px;
+      font-size: 0.68rem;
     }
-    .info-item { display: flex; gap: 6px; align-items: center; }
+    .info-overlay.show { display: flex; }
+    .info-item { display: flex; gap: 5px; align-items: center; }
     .info-label { color: #003310; }
     .info-val { color: #00ff41; font-weight: bold; }
     .info-val.blue { color: #00aaff; }
     .info-val.yellow { color: #ffcc00; }
     .info-val.red { color: #ff4444; }
+    .swatch { width: 16px; height: 16px; border: 1px solid #0a1f0a; display: inline-block; }
 
-    /* COLOR SWATCH */
-    .swatch {
-      width: 20px; height: 20px;
-      border: 1px solid #0a1f0a;
-      display: inline-block;
-      vertical-align: middle;
-      margin-right: 4px;
-    }
-
-    /* BOTTOM BAR */
     .bottom-bar {
       background: #020a02;
       border-top: 1px solid #0a1f0a;
@@ -117,19 +112,15 @@
       flex-shrink: 0;
     }
     .btn {
-      padding: 8px 24px;
+      padding: 8px 20px;
       font-family: 'Orbitron', monospace;
-      font-size: 0.7rem; letter-spacing: 2px;
+      font-size: 0.68rem; letter-spacing: 2px;
       border: none; cursor: pointer; transition: all 0.2s;
     }
     .btn-start { background: #00ff41; color: #000; font-weight: 700; }
     .btn-start:hover { background: #fff; }
     .btn-stop { background: transparent; border: 1px solid #ff0033; color: #ff0033; }
-    .btn-stop:hover { background: rgba(255,0,51,0.1); }
     .btn-flip { background: transparent; border: 1px solid #00aaff; color: #00aaff; }
-    .btn-flip:hover { background: rgba(0,170,255,0.1); }
-
-    /* STATUSBAR */
     .statusbar {
       background: #00ff41; color: #000;
       font-size: 0.62rem; padding: 2px 16px;
@@ -141,22 +132,21 @@
 <body>
 
 <div class="topbar">
-  <div class="logo">ANDRE<span>_VISION</span> // FACE</div>
+  <div class="logo">ANDRE<span>_VISION</span></div>
   <div class="topbar-right">
     <span><span class="dot"></span>READY</span>
     <span id="clock"></span>
   </div>
 </div>
 
-<div class="cam-wrap" id="camWrap">
+<div class="cam-wrap">
   <video id="video" autoplay playsinline muted></video>
   <canvas id="overlay"></canvas>
-
   <div class="hud hud-tl"></div>
   <div class="hud hud-tr"></div>
   <div class="hud hud-bl"></div>
   <div class="hud hud-br"></div>
-  <div class="fps" id="fps">FPS: --</div>
+  <div class="fps-display" id="fps">FPS: --</div>
 
   <div class="placeholder" id="placeholder">
     <div class="icon">📷</div>
@@ -164,28 +154,19 @@
     <p style="font-size:0.65rem;opacity:0.5">IZINKAN AKSES KAMERA</p>
   </div>
 
-  <!-- LIVE INFO -->
-  <div class="info-overlay" id="infoOverlay" style="display:none">
-    <div class="info-item">
-      <span class="info-label">FACE</span>
-      <span class="info-val" id="iDetected">NO</span>
-    </div>
-    <div class="info-item">
-      <span class="info-label">CONF</span>
-      <span class="info-val blue" id="iConf">--</span>
-    </div>
-    <div class="info-item">
-      <span class="info-label">POS</span>
-      <span class="info-val blue" id="iPos">--</span>
-    </div>
-    <div class="info-item">
-      <span class="swatch" id="swatch"></span>
-      <span class="info-val red" id="iColor">--</span>
-    </div>
-    <div class="info-item">
-      <span class="info-label">TONE</span>
-      <span class="info-val yellow" id="iTone">--</span>
-    </div>
+  <div class="loading" id="loading">
+    <div class="loading-title">LOADING AI...</div>
+    <div class="loading-bar-wrap"><div class="loading-bar" id="loadBar"></div></div>
+    <div class="loading-sub" id="loadSub">Initializing...</div>
+  </div>
+
+  <div class="info-overlay" id="infoOverlay">
+    <div class="info-item"><span class="info-label">FACE</span><span class="info-val" id="iDetected">--</span></div>
+    <div class="info-item"><span class="info-label">AGE</span><span class="info-val blue" id="iAge">--</span></div>
+    <div class="info-item"><span class="info-label">GENDER</span><span class="info-val blue" id="iGender">--</span></div>
+    <div class="info-item"><span class="info-label">MOOD</span><span class="info-val yellow" id="iMood">--</span></div>
+    <div class="info-item"><span class="swatch" id="swatch"></span><span class="info-val red" id="iColor">--</span></div>
+    <div class="info-item"><span class="info-label">TONE</span><span class="info-val yellow" id="iTone">--</span></div>
   </div>
 </div>
 
@@ -196,69 +177,91 @@
 </div>
 
 <div class="statusbar">
-  <span>ANDRE_VISION // FACE DETECTION</span>
+  <span>ANDRE_VISION // FACE AI</span>
   <span id="status">IDLE</span>
 </div>
 
 <script>
-  // CLOCK
   setInterval(() => { document.getElementById('clock').textContent = new Date().toLocaleTimeString(); }, 1000);
 
   const video = document.getElementById('video');
   const canvas = document.getElementById('overlay');
   const ctx = canvas.getContext('2d');
-  let stream = null, detector = null, running = false;
+  let stream = null, running = false, modelsLoaded = false;
   let facingMode = 'user';
-  let frameCount = 0, lastTime = Date.now(), fps = 0;
-  let lastResults = null;
+  let frameCount = 0, lastTime = Date.now();
+  let detectionInterval = null;
 
-  // INIT FACE DETECTION
-  function initDetector() {
-    detector = new FaceDetection({
-      locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${f}`
-    });
-    detector.setOptions({ model: 'short', minDetectionConfidence: 0.5 });
-    detector.onResults(onResults);
-  }
+  // LOAD MODELS
+  async function loadModels() {
+    const loading = document.getElementById('loading');
+    const loadBar = document.getElementById('loadBar');
+    const loadSub = document.getElementById('loadSub');
+    loading.classList.add('show');
 
-  function onResults(results) {
-    lastResults = results;
+    const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+
+    try {
+      loadSub.textContent = 'Loading face detector...';
+      loadBar.style.width = '20%';
+      await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+
+      loadSub.textContent = 'Loading age & gender...';
+      loadBar.style.width = '50%';
+      await faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL);
+
+      loadSub.textContent = 'Loading expressions...';
+      loadBar.style.width = '80%';
+      await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
+
+      loadBar.style.width = '100%';
+      loadSub.textContent = 'Ready!';
+      modelsLoaded = true;
+      setTimeout(() => loading.classList.remove('show'), 500);
+    } catch(e) {
+      loadSub.textContent = 'Error: ' + e.message;
+    }
   }
 
   async function startCam() {
     try {
       document.getElementById('placeholder').style.display = 'none';
-      document.getElementById('infoOverlay').style.display = 'flex';
-      document.getElementById('status').textContent = 'LOADING...';
+      document.getElementById('status').textContent = 'STARTING...';
+
+      if(!modelsLoaded) await loadModels();
 
       if(stream) stream.getTracks().forEach(t => t.stop());
       stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode, width: 480, height: 640 },
+        video: { facingMode, width: 320, height: 240 },
         audio: false
       });
       video.srcObject = stream;
       video.style.display = 'block';
       await video.play();
 
-      if(!detector) initDetector();
       running = true;
+      document.getElementById('infoOverlay').classList.add('show');
       document.getElementById('status').textContent = 'DETECTING...';
-      loop();
+
+      // Run detection every 300ms — smooth & not heavy
+      if(detectionInterval) clearInterval(detectionInterval);
+      detectionInterval = setInterval(detect, 300);
+      drawLoop();
     } catch(e) {
-      document.getElementById('status').textContent = 'CAM ERROR';
-      alert('Izinkan akses kamera bro! ' + e.message);
+      document.getElementById('status').textContent = 'ERROR';
+      alert('Error: ' + e.message);
     }
   }
 
   function stopCam() {
     running = false;
+    if(detectionInterval) clearInterval(detectionInterval);
     if(stream) stream.getTracks().forEach(t => t.stop());
     video.style.display = 'none';
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     document.getElementById('placeholder').style.display = 'flex';
-    document.getElementById('infoOverlay').style.display = 'none';
+    document.getElementById('infoOverlay').classList.remove('show');
     document.getElementById('status').textContent = 'IDLE';
-    document.getElementById('iDetected').textContent = 'NO';
     document.getElementById('fps').textContent = 'FPS: --';
   }
 
@@ -267,59 +270,79 @@
     if(running) await startCam();
   }
 
-  let skipFrame = 0;
-  async function loop() {
+  // DRAW LOOP - smooth 60fps just drawing
+  function drawLoop() {
     if(!running) return;
+    canvas.width = video.videoWidth || 320;
+    canvas.height = video.videoHeight || 240;
 
-    // Resize canvas
-    canvas.width = video.videoWidth || 480;
-    canvas.height = video.videoHeight || 640;
-
-    // Draw video
+    // Mirror draw
     ctx.save();
+    ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
-    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     ctx.restore();
-
-    // Run detection every 2 frames
-    skipFrame++;
-    if(skipFrame % 2 === 0) {
-      try { await detector.send({image: video}); } catch(e) {}
-    }
-
-    // Draw results
-    if(lastResults) drawResults(lastResults);
 
     // FPS
     frameCount++;
     const now = Date.now();
     if(now - lastTime >= 1000) {
-      fps = frameCount; frameCount = 0; lastTime = now;
-      document.getElementById('fps').textContent = 'FPS: ' + fps;
+      document.getElementById('fps').textContent = 'FPS: ' + frameCount;
+      frameCount = 0; lastTime = now;
     }
 
-    requestAnimationFrame(loop);
+    if(lastDetections) drawDetections();
+    requestAnimationFrame(drawLoop);
   }
 
-  function drawResults(results) {
-    const dets = results.detections || [];
+  let lastDetections = null;
 
-    if(dets.length === 0) {
+  // DETECT - every 300ms
+  async function detect() {
+    if(!running || video.readyState < 2) return;
+    try {
+      const results = await faceapi
+        .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.4 }))
+        .withAgeAndGender()
+        .withFaceExpressions();
+      lastDetections = results;
+      updateInfo(results);
+    } catch(e) {}
+  }
+
+  function updateInfo(results) {
+    if(!results || results.length === 0) {
       document.getElementById('iDetected').textContent = 'NO';
-      document.getElementById('iConf').textContent = '--';
-      document.getElementById('iPos').textContent = '--';
+      document.getElementById('iAge').textContent = '--';
+      document.getElementById('iGender').textContent = '--';
+      document.getElementById('iMood').textContent = '--';
       return;
     }
 
-    document.getElementById('iDetected').textContent = 'YES ✓';
+    document.getElementById('iDetected').textContent = results.length + ' ✓';
+    const d = results[0];
+    document.getElementById('iAge').textContent = Math.round(d.age) + ' y/o';
+    document.getElementById('iGender').textContent = d.gender.toUpperCase();
 
-    dets.forEach(det => {
-      const box = det.boundingBox;
-      const x = box.xCenter * canvas.width - (box.width * canvas.width) / 2;
-      const y = box.yCenter * canvas.height - (box.height * canvas.height) / 2;
-      const w = box.width * canvas.width;
-      const h = box.height * canvas.height;
-      const conf = Math.round(det.score[0] * 100);
+    // Best expression
+    const exp = d.expressions;
+    const mood = Object.entries(exp).sort((a,b) => b[1]-a[1])[0];
+    const moodEmoji = {happy:'😊',sad:'😢',angry:'😠',surprised:'😲',disgusted:'🤢',fearful:'😨',neutral:'😐'};
+    document.getElementById('iMood').textContent = (moodEmoji[mood[0]] || '') + ' ' + mood[0].toUpperCase();
+  }
+
+  function drawDetections() {
+    if(!lastDetections) return;
+    const scaleX = canvas.width / (video.videoWidth || 320);
+    const scaleY = canvas.height / (video.videoHeight || 240);
+
+    lastDetections.forEach(d => {
+      const box = d.detection.box;
+      // Mirror x
+      const x = canvas.width - (box.x + box.width) * scaleX;
+      const y = box.y * scaleY;
+      const w = box.width * scaleX;
+      const h = box.height * scaleY;
 
       // Glow box
       ctx.shadowBlur = 16; ctx.shadowColor = '#00ff41';
@@ -328,86 +351,55 @@
       ctx.shadowBlur = 0;
 
       // Corner brackets
-      const cs = 16; ctx.lineWidth = 3;
-      ctx.strokeStyle = '#00ff41';
-      [
-        [x, y, cs, 0, 0, cs],
-        [x+w, y, -cs, 0, 0, cs],
-        [x, y+h, cs, 0, 0, -cs],
-        [x+w, y+h, -cs, 0, 0, -cs]
-      ].forEach(([px, py, dx1, dy1, dx2, dy2]) => {
-        ctx.beginPath();
-        ctx.moveTo(px+dx1, py+dy1);
-        ctx.lineTo(px, py);
-        ctx.lineTo(px+dx2, py+dy2);
-        ctx.stroke();
-      });
+      const cs = 14; ctx.lineWidth = 3;
+      [[x,y,cs,0,0,cs],[x+w,y,-cs,0,0,cs],[x,y+h,cs,0,0,-cs],[x+w,y+h,-cs,0,0,-cs]]
+        .forEach(([px,py,dx1,dy1,dx2,dy2]) => {
+          ctx.beginPath();
+          ctx.moveTo(px+dx1,py+dy1);
+          ctx.lineTo(px,py);
+          ctx.lineTo(px+dx2,py+dy2);
+          ctx.stroke();
+        });
 
-      // Label bg
-      ctx.fillStyle = 'rgba(0,20,0,0.8)';
-      ctx.fillRect(x, y - 24, w, 22);
+      // Label
+      const age = Math.round(d.age);
+      const gender = d.gender.toUpperCase();
+      const exp = d.expressions;
+      const mood = Object.entries(exp).sort((a,b)=>b[1]-a[1])[0][0].toUpperCase();
+      const label = `${gender} ~${age}yr | ${mood}`;
+
+      ctx.fillStyle = 'rgba(0,20,0,0.85)';
+      ctx.fillRect(x, y - 22, w, 20);
       ctx.fillStyle = '#00ff41';
-      ctx.font = 'bold 11px Share Tech Mono';
-      ctx.shadowBlur = 6; ctx.shadowColor = '#00ff41';
-      ctx.fillText(`FACE DETECTED  ${conf}%`, x + 6, y - 7);
+      ctx.font = 'bold 10px Share Tech Mono';
+      ctx.shadowBlur = 4; ctx.shadowColor = '#00ff41';
+      ctx.fillText(label, x + 4, y - 6);
       ctx.shadowBlur = 0;
 
-      // Keypoints
-      const colors = ['#00ffff','#ff00ff','#ffff00','#ff8800','#00ff88','#ff0044'];
-      det.landmarks.forEach((lm, i) => {
-        const lx = lm.x * canvas.width;
-        const ly = lm.y * canvas.height;
-        ctx.beginPath();
-        ctx.arc(lx, ly, 4, 0, Math.PI*2);
-        ctx.fillStyle = colors[i] || '#fff';
-        ctx.shadowBlur = 8; ctx.shadowColor = colors[i] || '#fff';
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      });
-
-      // Face mesh grid (simplified)
-      ctx.strokeStyle = 'rgba(0,255,65,0.08)';
-      ctx.lineWidth = 1;
-      for(let i=0; i<4; i++) {
-        ctx.beginPath();
-        ctx.moveTo(x, y + (h/4)*i);
-        ctx.lineTo(x+w, y + (h/4)*i);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(x + (w/4)*i, y);
-        ctx.lineTo(x + (w/4)*i, y+h);
-        ctx.stroke();
-      }
-
-      // UPDATE SIDEBAR
-      document.getElementById('iConf').textContent = conf + '%';
-      document.getElementById('iPos').textContent =
-        Math.round(box.xCenter*100) + '%, ' + Math.round(box.yCenter*100) + '%';
-
-      // COLOR SAMPLE
-      analyzeColor(x, y, w, h);
+      // Color sample
+      try {
+        const sx = Math.max(0, Math.round(x + w*0.3));
+        const sy = Math.max(0, Math.round(y + h*0.2));
+        const sw = Math.max(1, Math.round(w*0.2));
+        const sh = Math.max(1, Math.round(h*0.2));
+        const data = ctx.getImageData(sx, sy, sw, sh).data;
+        let r=0,g=0,b=0,c=0;
+        for(let i=0;i<data.length;i+=4){r+=data[i];g+=data[i+1];b+=data[i+2];c++;}
+        if(c){
+          r=Math.round(r/c);g=Math.round(g/c);b=Math.round(b/c);
+          const hex='#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+          const br=Math.round((r*299+g*587+b*114)/1000);
+          const tone=br>200?'VERY LIGHT':br>160?'LIGHT':br>120?'MEDIUM':br>80?'MED DARK':br>50?'DARK':'VERY DARK';
+          document.getElementById('iColor').textContent=hex.toUpperCase();
+          document.getElementById('iTone').textContent=tone;
+          document.getElementById('swatch').style.background=hex;
+        }
+      } catch(e) {}
     });
   }
 
-  function analyzeColor(x, y, w, h) {
-    try {
-      const sx = Math.max(0, Math.round((canvas.width - x - w/2) - w*0.1));
-      const sy = Math.max(0, Math.round(y + h*0.2));
-      const sw = Math.max(1, Math.round(w * 0.2));
-      const sh = Math.max(1, Math.round(h * 0.2));
-      const data = ctx.getImageData(sx, sy, sw, sh).data;
-      let r=0,g=0,b=0,c=0;
-      for(let i=0;i<data.length;i+=4){r+=data[i];g+=data[i+1];b+=data[i+2];c++;}
-      if(!c) return;
-      r=Math.round(r/c); g=Math.round(g/c); b=Math.round(b/c);
-      const hex='#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
-      const br=Math.round((r*299+g*587+b*114)/1000);
-      const tone = br>200?'VERY LIGHT':br>160?'LIGHT':br>120?'MEDIUM':br>80?'MEDIUM DARK':br>50?'DARK':'VERY DARK';
-      document.getElementById('iColor').textContent = hex.toUpperCase();
-      document.getElementById('iTone').textContent = tone;
-      document.getElementById('swatch').style.background = hex;
-    } catch(e) {}
-  }
+  // Auto load models on page load
+  loadModels();
 </script>
 </body>
 </html>
