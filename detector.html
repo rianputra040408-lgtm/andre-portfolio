@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ANDRE_VISION // AI DETECTOR</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet"/>
+
+  <!-- MediaPipe & TensorFlow -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --green: #00ff41;
+      --red: #ff0033;
+      --blue: #00aaff;
+      --yellow: #ffcc00;
+      --bg: #020802;
+      --card: #050f05;
+      --border: #0a1f0a;
+    }
+    body {
+      background: var(--bg);
+      color: var(--green);
+      font-family: 'Share Tech Mono', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.012) 2px, rgba(0,255,65,0.012) 4px);
+      pointer-events: none; z-index: 9999;
+    }
+
+    /* TOPBAR */
+    .topbar {
+      background: #020a02;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .logo { font-family: 'Orbitron', monospace; font-size: 0.9rem; font-weight: 900; color: var(--green); letter-spacing: 4px; text-shadow: 0 0 10px var(--green); }
+    .logo span { color: var(--blue); }
+    .topbar-right { display: flex; gap: 12px; align-items: center; font-size: 0.7rem; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); animation: blink 1.5s infinite; display: inline-block; margin-right: 5px; }
+    @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.2} }
+    #clock { font-family: 'Orbitron', monospace; font-size: 0.75rem; color: var(--green); }
+
+    /* MAIN LAYOUT */
+    .main { display: grid; grid-template-columns: 1fr 300px; gap: 0; min-height: calc(100vh - 45px); }
+
+    /* CAMERA SECTION */
+    .camera-section { position: relative; background: #000; display: flex; flex-direction: column; }
+    .camera-header {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.72rem;
+    }
+    .camera-title { color: var(--green); letter-spacing: 3px; }
+    .cam-btns { display: flex; gap: 8px; }
+    .cam-btn {
+      padding: 6px 14px;
+      font-family: 'Orbitron', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 2px;
+      border: none; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-start { background: var(--green); color: #000; font-weight: 700; }
+    .btn-start:hover { background: #fff; }
+    .btn-stop { background: transparent; border: 1px solid var(--red); color: var(--red); }
+    .btn-stop:hover { background: rgba(255,0,51,0.1); }
+
+    /* VIDEO + CANVAS */
+    .video-wrap {
+      position: relative;
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      background: #000;
+      min-height: 400px;
+    }
+    #video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      display: none;
+    }
+    #canvas {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      transform: scaleX(-1);
+    }
+    .cam-placeholder {
+      text-align: center;
+      color: #003310;
+    }
+    .cam-placeholder .icon { font-size: 4rem; margin-bottom: 16px; opacity: 0.3; }
+    .cam-placeholder p { font-size: 0.8rem; letter-spacing: 2px; }
+
+    /* HUD OVERLAYS on camera */
+    .hud-corner {
+      position: absolute;
+      width: 20px; height: 20px;
+      border-color: var(--green);
+      border-style: solid;
+      opacity: 0.6;
+    }
+    .hud-tl { top: 10px; left: 10px; border-width: 2px 0 0 2px; }
+    .hud-tr { top: 10px; right: 10px; border-width: 2px 2px 0 0; }
+    .hud-bl { bottom: 10px; left: 10px; border-width: 0 0 2px 2px; }
+    .hud-br { bottom: 10px; right: 10px; border-width: 0 2px 2px 0; }
+
+    .fps-display {
+      position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+      font-family: 'Orbitron', monospace;
+      font-size: 0.65rem;
+      color: var(--green);
+      letter-spacing: 2px;
+      opacity: 0.7;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      border-left: 1px solid var(--border);
+      background: var(--card);
+      overflow-y: auto;
+      display: flex; flex-direction: column;
+    }
+    .sidebar::-webkit-scrollbar { width: 3px; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); }
+
+    /* INFO PANELS */
+    .panel {
+      border-bottom: 1px solid var(--border);
+      padding: 14px;
+    }
+    .panel-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 3px;
+      margin-bottom: 12px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .panel-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .dot-green { background: var(--green); box-shadow: 0 0 4px var(--green); }
+    .dot-blue { background: var(--blue); box-shadow: 0 0 4px var(--blue); }
+    .dot-yellow { background: var(--yellow); box-shadow: 0 0 4px var(--yellow); }
+    .dot-red { background: var(--red); box-shadow: 0 0 4px var(--red); }
+
+    .info-row {
+      display: flex; justify-content: space-between;
+      font-size: 0.72rem;
+      padding: 4px 0;
+      border-bottom: 1px solid #0a0f0a;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: #004410; }
+    .info-val { color: var(--green); font-weight: bold; }
+    .info-val.blue { color: var(--blue); }
+    .info-val.yellow { color: var(--yellow); }
+    .info-val.red { color: var(--red); }
+
+    /* COLOR SWATCH */
+    .color-swatch {
+      width: 100%; height: 40px;
+      border: 1px solid var(--border);
+      margin: 8px 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem;
+      letter-spacing: 2px;
+      transition: background 0.3s;
+    }
+
+    /* POSE SKELETON MINI */
+    .skeleton-mini { width: 100%; height: 120px; background: #000; border: 1px solid var(--border); margin-top: 8px; }
+
+    /* LOG */
+    .log-area {
+      flex: 1;
+      padding: 14px;
+      font-size: 0.68rem;
+      color: #003310;
+      overflow-y: auto;
+      min-height: 150px;
+    }
+    .log-line { margin-bottom: 3px; }
+    .log-line.g { color: var(--green); }
+    .log-line.b { color: var(--blue); }
+    .log-line.y { color: var(--yellow); }
+    .log-line.r { color: var(--red); }
+
+    /* STATUSBAR */
+    .statusbar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--green); color: #000;
+      font-size: 0.65rem; padding: 3px 20px;
+      display: flex; justify-content: space-between;
+      letter-spacing: 2px; z-index: 200;
+    }
+
+    /* LOADING */
+    .loading-overlay {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.9);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 50;
+    }
+    .loading-title { font-family: 'Orbitron', monospace; font-size: 1rem; color: var(--green); letter-spacing: 4px; margin-bottom: 16px; }
+    .loading-bar-wrap { width: 200px; height: 6px; background: #001100; border: 1px solid var(--green); }
+    .loading-bar { height: 100%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: loadAnim 2s ease forwards; }
+    @keyframes loadAnim { from{width:0}to{width:100%} }
+    .loading-sub { font-size: 0.7rem; color: #004410; margin-top: 10px; letter-spacing: 2px; }
+
+    @media(max-width: 700px) {
+      .main { grid-template-columns: 1fr; grid-template-rows: auto auto; }
+      .sidebar { border-left: none; border-top: 1px solid var(--border); max-height: 400px; }
+      .video-wrap { min-height: 280px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="logo">ANDRE<span>_VISION</span></div>
+    <div class="topbar-right">
+      <span><span class="status-dot"></span>AI READY</span>
+      <span id="clock"></span>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- CAMERA -->
+    <div class="camera-section">
+      <div class="camera-header">
+        <span class="camera-title">📡 LIVE DETECTION FEED</span>
+        <div class="cam-btns">
+          <button class="cam-btn btn-start" onclick="startCamera()">▶ START</button>
+          <button class="cam-btn btn-stop" onclick="stopCamera()">⏹ STOP</button>
+        </div>
+      </div>
+      <div class="video-wrap" id="videoWrap">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="canvas"></canvas>
+
+        <!-- HUD corners -->
+        <div class="hud-corner hud-tl"></div>
+        <div class="hud-corner hud-tr"></div>
+        <div class="hud-corner hud-bl"></div>
+        <div class="hud-corner hud-br"></div>
+        <div class="fps-display" id="fpsDisplay">FPS: --</div>
+
+        <div class="cam-placeholder" id="placeholder">
+          <div class="icon">📷</div>
+          <p>TEKAN START UNTUK MULAI</p>
+          <p style="margin-top:8px;font-size:0.65rem;opacity:0.5">IZINKAN AKSES KAMERA</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+
+      <!-- FACE INFO -->
+      <div class="panel">
+        <div class="panel-title"><span class="panel-dot dot-green"></span>FACE DETECTION</div>
+        <div class="info-row"><span class="info-label">DETECTED</span><span class="info-val" id="faceDetected">NO</span></div>
+        <div class="info-row"><span class="info-label">FACES</span><span class="info-val" id="faceCount">0</span></div>
+        <div class="info-row"><span class="info-label">CONFIDENCE</span><span class="info-val" id="faceConf">--</span></div>
+        <div class="info-row"><span class="info-label">POSITION</span><span class="info-val blue" id="facePos">--</span></div>
+        <div class="info-row"><span class="info-label">SIZE</span><span class="info-val blue" id="faceSize">--</span></div>
+      </div>
+
+      <!-- HAND INFO -->
+      <div class="panel">
+        <div class="panel-title"><span class="panel-dot dot-blue"></span>HAND TRACKING</div>
+        <div class="info-row"><span class="info-label">DETECTED</span><span class="info-val" id="handDetected">NO</span></div>
+        <div class="info-row"><span class="info-label">HANDS</span><span class="info-val" id="handCount">0</span></div>
+        <div class="info-row"><span class="info-label">HANDEDNESS</span><span class="info-val blue" id="handSide">--</span></div>
+        <div class="info-row"><span class="info-label">FINGERS UP</span><span class="info-val yellow" id="fingersUp">--</span></div>
+        <div class="info-row"><span class="info-label">GESTURE</span><span class="info-val yellow" id="gesture">--</span></div>
+      </div>
+
+      <!-- POSE INFO -->
+      <div class="panel">
+        <div class="panel-title"><span class="panel-dot dot-yellow"></span>POSE DETECTION</div>
+        <div class="info-row"><span class="info-label">DETECTED</span><span class="info-val" id="poseDetected">NO</span></div>
+        <div class="info-row"><span class="info-label">CONFIDENCE</span><span class="info-val" id="poseConf">--</span></div>
+        <div class="info-row"><span class="info-label">POSTURE</span><span class="info-val yellow" id="posture">--</span></div>
+        <canvas class="skeleton-mini" id="skelMini"></canvas>
+      </div>
+
+      <!-- COLOR INFO -->
+      <div class="panel">
+        <div class="panel-title"><span class="panel-dot dot-red"></span>COLOR ANALYSIS</div>
+        <div class="color-swatch" id="colorSwatch">--</div>
+        <div class="info-row"><span class="info-label">RGB</span><span class="info-val red" id="colorRGB">--</span></div>
+        <div class="info-row"><span class="info-label">HEX</span><span class="info-val red" id="colorHEX">--</span></div>
+        <div class="info-row"><span class="info-label">TONE</span><span class="info-val red" id="skinTone">--</span></div>
+        <div class="info-row"><span class="info-label">BRIGHTNESS</span><span class="info-val" id="brightness">--</span></div>
+      </div>
+
+      <!-- LOG -->
+      <div class="log-area" id="logArea">
+        <div class="log-line g">> ANDRE_VISION v1.0 LOADED</div>
+        <div class="log-line">> Waiting for camera input...</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="statusbar">
+    <span>ANDRE_VISION // AI DETECTOR</span>
+    <span id="statusText">IDLE</span>
+  </div>
+
+<script>
+  // CLOCK
+  setInterval(() => { document.getElementById('clock').textContent = new Date().toLocaleTimeString(); }, 1000);
+
+  let stream = null;
+  let animFrame = null;
+  let faceDetection = null, hands = null, pose = null;
+  let lastFPS = 0, frameCount = 0, lastTime = Date.now();
+  let isRunning = false;
+
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  function log(msg, type='') {
+    const area = document.getElementById('logArea');
+    const div = document.createElement('div');
+    div.className = 'log-line ' + type;
+    div.textContent = '> ' + msg;
+    area.appendChild(div);
+    area.scrollTop = area.scrollHeight;
+    if(area.children.length > 50) area.removeChild(area.children[0]);
+  }
+
+  // ══ MEDIAPIPE SETUP ══
+  let faceResults = null, handResults = null, poseResults = null;
+
+  function initModels() {
+    log('Loading face detection...', 'g');
+    faceDetection = new FaceDetection({locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${f}`});
+    faceDetection.setOptions({ model: 'short', minDetectionConfidence: 0.5 });
+    faceDetection.onResults(r => { faceResults = r; });
+
+    log('Loading hand tracking...', 'b');
+    hands = new Hands({locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
+    hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.6, minTrackingConfidence: 0.5 });
+    hands.onResults(r => { handResults = r; });
+
+    log('Loading pose detection...', 'y');
+    pose = new Pose({locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`});
+    pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+    pose.onResults(r => { poseResults = r; });
+
+    log('All models ready!', 'g');
+  }
+
+  async function startCamera() {
+    try {
+      document.getElementById('placeholder').style.display = 'none';
+      log('Requesting camera access...', 'g');
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 }, audio: false });
+      video.srcObject = stream;
+      video.style.display = 'block';
+      await video.play();
+      initModels();
+      isRunning = true;
+      document.getElementById('statusText').textContent = 'DETECTING...';
+      log('Camera started!', 'g');
+      renderLoop();
+    } catch(e) {
+      log('Camera error: ' + e.message, 'r');
+      document.getElementById('statusText').textContent = 'CAM ERROR';
+    }
+  }
+
+  function stopCamera() {
+    isRunning = false;
+    if(stream) stream.getTracks().forEach(t => t.stop());
+    video.style.display = 'none';
+    if(animFrame) cancelAnimationFrame(animFrame);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    document.getElementById('placeholder').style.display = 'flex';
+    document.getElementById('statusText').textContent = 'IDLE';
+    log('Camera stopped.', 'r');
+  }
+
+  // ══ MAIN RENDER LOOP ══
+  let frameSkip = 0;
+  async function renderLoop() {
+    if(!isRunning) return;
+
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
+    // Draw video frame
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+    ctx.restore();
+
+    // Run detections every 3 frames for performance
+    frameSkip++;
+    if(frameSkip % 2 === 0) {
+      try {
+        await faceDetection.send({image: video});
+        await hands.send({image: video});
+        if(frameSkip % 4 === 0) await pose.send({image: video});
+      } catch(e) {}
+    }
+
+    // DRAW RESULTS
+    drawFaceResults();
+    drawHandResults();
+    drawPoseResults();
+    analyzeColor();
+
+    // FPS
+    frameCount++;
+    const now = Date.now();
+    if(now - lastTime > 1000) {
+      lastFPS = frameCount;
+      frameCount = 0;
+      lastTime = now;
+      document.getElementById('fpsDisplay').textContent = 'FPS: ' + lastFPS;
+    }
+
+    animFrame = requestAnimationFrame(renderLoop);
+  }
+
+  // ══ FACE DETECTION ══
+  function drawFaceResults() {
+    if(!faceResults || !faceResults.detections) return;
+    const dets = faceResults.detections;
+
+    document.getElementById('faceDetected').textContent = dets.length > 0 ? 'YES ✓' : 'NO';
+    document.getElementById('faceDetected').className = 'info-val' + (dets.length > 0 ? ' blue' : '');
+    document.getElementById('faceCount').textContent = dets.length;
+
+    dets.forEach(det => {
+      const box = det.boundingBox;
+      const x = box.xCenter * canvas.width - (box.width * canvas.width) / 2;
+      const y = box.yCenter * canvas.height - (box.height * canvas.height) / 2;
+      const w = box.width * canvas.width;
+      const h = box.height * canvas.height;
+
+      // Draw box
+      ctx.strokeStyle = '#00ff41';
+      ctx.lineWidth = 2;
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#00ff41';
+      ctx.strokeRect(x, y, w, h);
+      ctx.shadowBlur = 0;
+
+      // Corner accents
+      const cs = 12;
+      ctx.lineWidth = 3;
+      [[x,y],[x+w,y],[x,y+h],[x+w,y+h]].forEach(([cx,cy], i) => {
+        ctx.beginPath();
+        ctx.moveTo(cx + (i%2===0?cs:-cs), cy);
+        ctx.lineTo(cx, cy);
+        ctx.lineTo(cx, cy + (i<2?cs:-cs));
+        ctx.stroke();
+      });
+
+      // Label
+      ctx.fillStyle = 'rgba(0,255,65,0.15)';
+      ctx.fillRect(x, y - 22, 120, 20);
+      ctx.fillStyle = '#00ff41';
+      ctx.font = '11px Share Tech Mono';
+      ctx.fillText('FACE ' + Math.round(det.score[0]*100) + '%', x + 4, y - 6);
+
+      // Keypoints
+      det.landmarks.forEach(lm => {
+        ctx.beginPath();
+        ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 3, 0, Math.PI*2);
+        ctx.fillStyle = '#00ffff';
+        ctx.shadowBlur = 6; ctx.shadowColor = '#00ffff';
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+
+      // Update sidebar
+      document.getElementById('faceConf').textContent = Math.round(det.score[0]*100) + '%';
+      document.getElementById('facePos').textContent = Math.round(box.xCenter*100) + '%, ' + Math.round(box.yCenter*100) + '%';
+      document.getElementById('faceSize').textContent = Math.round(w) + 'x' + Math.round(h) + 'px';
+
+      if(frameSkip % 30 === 0) log('Face detected (' + Math.round(det.score[0]*100) + '% confidence)', 'g');
+    });
+
+    if(dets.length === 0) {
+      document.getElementById('faceConf').textContent = '--';
+      document.getElementById('facePos').textContent = '--';
+      document.getElementById('faceSize').textContent = '--';
+    }
+  }
+
+  // ══ HAND TRACKING ══
+  const HAND_CONNECTIONS = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+
+  function drawHandResults() {
+    if(!handResults || !handResults.multiHandLandmarks) return;
+    const landmarks = handResults.multiHandLandmarks;
+    const handedness = handResults.multiHandedness;
+
+    document.getElementById('handDetected').textContent = landmarks.length > 0 ? 'YES ✓' : 'NO';
+    document.getElementById('handCount').textContent = landmarks.length;
+
+    landmarks.forEach((lms, idx) => {
+      const side = handedness[idx]?.label || '?';
+      document.getElementById('handSide').textContent = side.toUpperCase();
+
+      // Draw connections
+      ctx.strokeStyle = '#00aaff';
+      ctx.lineWidth = 2;
+      ctx.shadowBlur = 8; ctx.shadowColor = '#00aaff';
+      HAND_CONNECTIONS.forEach(([a, b]) => {
+        ctx.beginPath();
+        ctx.moveTo(lms[a].x * canvas.width, lms[a].y * canvas.height);
+        ctx.lineTo(lms[b].x * canvas.width, lms[b].y * canvas.height);
+        ctx.stroke();
+      });
+      ctx.shadowBlur = 0;
+
+      // Draw joints
+      lms.forEach((lm, i) => {
+        ctx.beginPath();
+        ctx.arc(lm.x * canvas.width, lm.y * canvas.height, i === 0 ? 6 : 4, 0, Math.PI*2);
+        ctx.fillStyle = i === 0 ? '#ffffff' : '#00aaff';
+        ctx.shadowBlur = 6; ctx.shadowColor = '#00aaff';
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+
+      // Finger count
+      const fingers = countFingers(lms, side);
+      document.getElementById('fingersUp').textContent = fingers.count + '/5';
+      document.getElementById('gesture').textContent = fingers.gesture;
+
+      // Label
+      ctx.fillStyle = '#00aaff';
+      ctx.font = '11px Share Tech Mono';
+      ctx.fillText(side.toUpperCase() + ' HAND | ' + fingers.gesture, lms[0].x * canvas.width - 20, lms[0].y * canvas.height - 10);
+
+      if(frameSkip % 30 === 0) log('Hand: ' + side + ' | ' + fingers.gesture, 'b');
+    });
+
+    if(landmarks.length === 0) {
+      document.getElementById('handSide').textContent = '--';
+      document.getElementById('fingersUp').textContent = '--';
+      document.getElementById('gesture').textContent = '--';
+    }
+  }
+
+  function countFingers(lms, side) {
+    const tips = [4, 8, 12, 16, 20];
+    const bases = [3, 6, 10, 14, 18];
+    let count = 0;
+    const isRight = side === 'Right';
+
+    // Thumb
+    if(isRight ? lms[4].x < lms[3].x : lms[4].x > lms[3].x) count++;
+    // Other fingers
+    for(let i = 1; i < 5; i++) {
+      if(lms[tips[i]].y < lms[bases[i]].y) count++;
+    }
+
+    let gesture = count + ' finger' + (count !== 1 ? 's' : '');
+    if(count === 0) gesture = '✊ FIST';
+    else if(count === 1) gesture = '☝️ POINT';
+    else if(count === 2) gesture = '✌️ PEACE';
+    else if(count === 5) gesture = '🖐️ OPEN';
+    else if(count === 3) gesture = '🤟 THREE';
+
+    return { count, gesture };
+  }
+
+  // ══ POSE DETECTION ══
+  const POSE_CONNECTIONS = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[24,26],[25,27],[26,28]];
+
+  function drawPoseResults() {
+    if(!poseResults || !poseResults.poseLandmarks) return;
+    const lms = poseResults.poseLandmarks;
+
+    document.getElementById('poseDetected').textContent = 'YES ✓';
+    document.getElementById('poseConf').textContent = Math.round((lms[0].visibility || 0) * 100) + '%';
+
+    // Draw on main canvas
+    ctx.strokeStyle = '#ffcc00';
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 8; ctx.shadowColor = '#ffcc00';
+    POSE_CONNECTIONS.forEach(([a, b]) => {
+      if(lms[a].visibility > 0.5 && lms[b].visibility > 0.5) {
+        ctx.beginPath();
+        ctx.moveTo(lms[a].x * canvas.width, lms[a].y * canvas.height);
+        ctx.lineTo(lms[b].x * canvas.width, lms[b].y * canvas.height);
+        ctx.stroke();
+      }
+    });
+    ctx.shadowBlur = 0;
+
+    lms.forEach((lm, i) => {
+      if(lm.visibility > 0.5) {
+        ctx.beginPath();
+        ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 4, 0, Math.PI*2);
+        ctx.fillStyle = '#ffcc00';
+        ctx.fill();
+      }
+    });
+
+    // Posture analysis
+    const posture = analyzePosure(lms);
+    document.getElementById('posture').textContent = posture;
+
+    // Mini skeleton
+    drawMiniSkeleton(lms);
+  }
+
+  function analyzePosure(lms) {
+    if(!lms[11] || !lms[12]) return 'UNKNOWN';
+    const shoulderDiff = Math.abs(lms[11].y - lms[12].y);
+    if(shoulderDiff > 0.05) return '↗ TILTED';
+    if(lms[0] && lms[23] && lms[0].y < lms[23].y - 0.3) return '✓ UPRIGHT';
+    return '↓ SLOUCHING';
+  }
+
+  function drawMiniSkeleton(lms) {
+    const mc = document.getElementById('skelMini');
+    const mx = mc.getContext('2d');
+    mc.width = mc.offsetWidth; mc.height = mc.offsetHeight;
+    mx.fillStyle = '#000';
+    mx.fillRect(0, 0, mc.width, mc.height);
+    mx.strokeStyle = '#ffcc00';
+    mx.lineWidth = 1.5;
+    POSE_CONNECTIONS.forEach(([a, b]) => {
+      if(lms[a] && lms[b] && lms[a].visibility > 0.5 && lms[b].visibility > 0.5) {
+        mx.beginPath();
+        mx.moveTo(lms[a].x * mc.width, lms[a].y * mc.height * 1.5);
+        mx.lineTo(lms[b].x * mc.width, lms[b].y * mc.height * 1.5);
+        mx.stroke();
+      }
+    });
+    lms.forEach(lm => {
+      if(lm.visibility > 0.5) {
+        mx.beginPath();
+        mx.arc(lm.x * mc.width, lm.y * mc.height * 1.5, 2, 0, Math.PI*2);
+        mx.fillStyle = '#ffcc00';
+        mx.fill();
+      }
+    });
+  }
+
+  // ══ COLOR ANALYSIS ══
+  function analyzeColor() {
+    if(!faceResults || !faceResults.detections || faceResults.detections.length === 0) return;
+    try {
+      const det = faceResults.detections[0];
+      const box = det.boundingBox;
+      const cx = (1 - box.xCenter) * canvas.width;
+      const cy = box.yCenter * canvas.height;
+      const pw = Math.max(1, box.width * canvas.width * 0.3);
+      const ph = Math.max(1, box.height * canvas.height * 0.3);
+
+      const imgData = ctx.getImageData(Math.max(0, cx - pw/2), Math.max(0, cy - ph/2), pw, ph);
+      const data = imgData.data;
+      let r=0, g=0, b=0, count=0;
+      for(let i=0; i<data.length; i+=16) {
+        r += data[i]; g += data[i+1]; b += data[i+2]; count++;
+      }
+      if(count === 0) return;
+      r = Math.round(r/count); g = Math.round(g/count); b = Math.round(b/count);
+
+      const hex = '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
+      const brightness = Math.round((r*299 + g*587 + b*114) / 1000);
+      const tone = getSkinTone(r, g, b);
+
+      document.getElementById('colorRGB').textContent = `${r}, ${g}, ${b}`;
+      document.getElementById('colorHEX').textContent = hex.toUpperCase();
+      document.getElementById('skinTone').textContent = tone;
+      document.getElementById('brightness').textContent = brightness + '/255';
+      const swatch = document.getElementById('colorSwatch');
+      swatch.style.background = hex;
+      swatch.style.color = brightness > 128 ? '#000' : '#fff';
+      swatch.textContent = hex.toUpperCase();
+    } catch(e) {}
+  }
+
+  function getSkinTone(r, g, b) {
+    const brightness = (r + g + b) / 3;
+    if(brightness > 200) return 'VERY LIGHT';
+    if(brightness > 160) return 'LIGHT';
+    if(brightness > 120) return 'MEDIUM';
+    if(brightness > 80) return 'MEDIUM DARK';
+    if(brightness > 50) return 'DARK';
+    return 'VERY DARK';
+  }
+</script>
+</body>
+</html>
