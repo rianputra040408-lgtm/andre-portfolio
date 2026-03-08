@@ -3,33 +3,19 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ANDRE_VISION // AI DETECTOR</title>
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet"/>
-
-  <!-- MediaPipe & TensorFlow -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <title>ANDRE_VISION // FACE</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap" rel="stylesheet"/>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
-
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --green: #00ff41;
-      --red: #ff0033;
-      --blue: #00aaff;
-      --yellow: #ffcc00;
-      --bg: #020802;
-      --card: #050f05;
-      --border: #0a1f0a;
-    }
     body {
-      background: var(--bg);
-      color: var(--green);
+      background: #020802;
+      color: #00ff41;
       font-family: 'Share Tech Mono', monospace;
-      min-height: 100vh;
-      overflow-x: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
     body::before {
       content: '';
@@ -41,416 +27,291 @@
     /* TOPBAR */
     .topbar {
       background: #020a02;
-      border-bottom: 1px solid var(--border);
-      padding: 10px 20px;
+      border-bottom: 1px solid #0a1f0a;
+      padding: 8px 16px;
       display: flex; justify-content: space-between; align-items: center;
-      position: sticky; top: 0; z-index: 100;
+      flex-shrink: 0;
     }
-    .logo { font-family: 'Orbitron', monospace; font-size: 0.9rem; font-weight: 900; color: var(--green); letter-spacing: 4px; text-shadow: 0 0 10px var(--green); }
-    .logo span { color: var(--blue); }
-    .topbar-right { display: flex; gap: 12px; align-items: center; font-size: 0.7rem; }
-    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); animation: blink 1.5s infinite; display: inline-block; margin-right: 5px; }
+    .logo { font-family: 'Orbitron', monospace; font-size: 0.85rem; font-weight: 900; color: #00ff41; letter-spacing: 3px; text-shadow: 0 0 10px #00ff41; }
+    .logo span { color: #00aaff; }
+    .topbar-right { font-size: 0.7rem; color: #003310; display: flex; gap: 12px; align-items: center; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #00ff41; box-shadow: 0 0 6px #00ff41; animation: blink 1.5s infinite; display: inline-block; margin-right: 4px; }
     @keyframes blink { 0%,100%{opacity:1}50%{opacity:0.2} }
-    #clock { font-family: 'Orbitron', monospace; font-size: 0.75rem; color: var(--green); }
+    #clock { font-family: 'Orbitron', monospace; font-size: 0.72rem; color: #00ff41; }
 
-    /* MAIN LAYOUT */
-    .main { display: grid; grid-template-columns: 1fr 300px; gap: 0; min-height: calc(100vh - 45px); }
-
-    /* CAMERA SECTION */
-    .camera-section { position: relative; background: #000; display: flex; flex-direction: column; }
-    .camera-header {
-      padding: 10px 16px;
-      border-bottom: 1px solid var(--border);
-      display: flex; justify-content: space-between; align-items: center;
-      font-size: 0.72rem;
-    }
-    .camera-title { color: var(--green); letter-spacing: 3px; }
-    .cam-btns { display: flex; gap: 8px; }
-    .cam-btn {
-      padding: 6px 14px;
-      font-family: 'Orbitron', monospace;
-      font-size: 0.65rem;
-      letter-spacing: 2px;
-      border: none; cursor: pointer;
-      transition: all 0.2s;
-    }
-    .btn-start { background: var(--green); color: #000; font-weight: 700; }
-    .btn-start:hover { background: #fff; }
-    .btn-stop { background: transparent; border: 1px solid var(--red); color: var(--red); }
-    .btn-stop:hover { background: rgba(255,0,51,0.1); }
-
-    /* VIDEO + CANVAS */
-    .video-wrap {
+    /* CAMERA */
+    .cam-wrap {
       position: relative;
       flex: 1;
-      display: flex; align-items: center; justify-content: center;
       background: #000;
-      min-height: 400px;
+      overflow: hidden;
     }
-    #video {
+    video {
+      position: absolute; inset: 0;
       width: 100%; height: 100%;
       object-fit: cover;
       transform: scaleX(-1);
       display: none;
     }
-    #canvas {
+    canvas#overlay {
       position: absolute; inset: 0;
       width: 100%; height: 100%;
       transform: scaleX(-1);
     }
-    .cam-placeholder {
-      text-align: center;
-      color: #003310;
-    }
-    .cam-placeholder .icon { font-size: 4rem; margin-bottom: 16px; opacity: 0.3; }
-    .cam-placeholder p { font-size: 0.8rem; letter-spacing: 2px; }
 
-    /* HUD OVERLAYS on camera */
-    .hud-corner {
-      position: absolute;
-      width: 20px; height: 20px;
-      border-color: var(--green);
-      border-style: solid;
-      opacity: 0.6;
-    }
-    .hud-tl { top: 10px; left: 10px; border-width: 2px 0 0 2px; }
-    .hud-tr { top: 10px; right: 10px; border-width: 2px 2px 0 0; }
-    .hud-bl { bottom: 10px; left: 10px; border-width: 0 0 2px 2px; }
-    .hud-br { bottom: 10px; right: 10px; border-width: 0 2px 2px 0; }
+    /* HUD CORNERS */
+    .hud { position: absolute; width: 24px; height: 24px; border-color: #00ff41; border-style: solid; opacity: 0.5; }
+    .hud-tl { top: 12px; left: 12px; border-width: 2px 0 0 2px; }
+    .hud-tr { top: 12px; right: 12px; border-width: 2px 2px 0 0; }
+    .hud-bl { bottom: 60px; left: 12px; border-width: 0 0 2px 2px; }
+    .hud-br { bottom: 60px; right: 12px; border-width: 0 2px 2px 0; }
 
-    .fps-display {
-      position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
-      font-family: 'Orbitron', monospace;
-      font-size: 0.65rem;
-      color: var(--green);
-      letter-spacing: 2px;
-      opacity: 0.7;
-    }
-
-    /* SIDEBAR */
-    .sidebar {
-      border-left: 1px solid var(--border);
-      background: var(--card);
-      overflow-y: auto;
+    /* PLACEHOLDER */
+    .placeholder {
+      position: absolute; inset: 0;
       display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: #003310; text-align: center; gap: 12px;
     }
-    .sidebar::-webkit-scrollbar { width: 3px; }
-    .sidebar::-webkit-scrollbar-thumb { background: var(--border); }
+    .placeholder .icon { font-size: 4rem; opacity: 0.3; }
+    .placeholder p { font-size: 0.8rem; letter-spacing: 2px; }
 
-    /* INFO PANELS */
-    .panel {
-      border-bottom: 1px solid var(--border);
-      padding: 14px;
+    /* FPS */
+    .fps {
+      position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+      font-family: 'Orbitron', monospace; font-size: 0.65rem;
+      color: #00ff41; letter-spacing: 2px; opacity: 0.6;
     }
-    .panel-title {
-      font-family: 'Orbitron', monospace;
-      font-size: 0.65rem;
-      letter-spacing: 3px;
-      margin-bottom: 12px;
-      display: flex; align-items: center; gap: 8px;
-    }
-    .panel-dot { width: 6px; height: 6px; border-radius: 50%; }
-    .dot-green { background: var(--green); box-shadow: 0 0 4px var(--green); }
-    .dot-blue { background: var(--blue); box-shadow: 0 0 4px var(--blue); }
-    .dot-yellow { background: var(--yellow); box-shadow: 0 0 4px var(--yellow); }
-    .dot-red { background: var(--red); box-shadow: 0 0 4px var(--red); }
 
-    .info-row {
-      display: flex; justify-content: space-between;
-      font-size: 0.72rem;
-      padding: 4px 0;
-      border-bottom: 1px solid #0a0f0a;
+    /* INFO OVERLAY - bottom of camera */
+    .info-overlay {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: rgba(2,8,2,0.85);
+      border-top: 1px solid #0a1f0a;
+      padding: 8px 16px;
+      display: flex; gap: 20px; flex-wrap: wrap;
+      font-size: 0.7rem;
     }
-    .info-row:last-child { border-bottom: none; }
-    .info-label { color: #004410; }
-    .info-val { color: var(--green); font-weight: bold; }
-    .info-val.blue { color: var(--blue); }
-    .info-val.yellow { color: var(--yellow); }
-    .info-val.red { color: var(--red); }
+    .info-item { display: flex; gap: 6px; align-items: center; }
+    .info-label { color: #003310; }
+    .info-val { color: #00ff41; font-weight: bold; }
+    .info-val.blue { color: #00aaff; }
+    .info-val.yellow { color: #ffcc00; }
+    .info-val.red { color: #ff4444; }
 
     /* COLOR SWATCH */
-    .color-swatch {
-      width: 100%; height: 40px;
-      border: 1px solid var(--border);
-      margin: 8px 0;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 0.7rem;
-      letter-spacing: 2px;
-      transition: background 0.3s;
+    .swatch {
+      width: 20px; height: 20px;
+      border: 1px solid #0a1f0a;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 4px;
     }
 
-    /* POSE SKELETON MINI */
-    .skeleton-mini { width: 100%; height: 120px; background: #000; border: 1px solid var(--border); margin-top: 8px; }
-
-    /* LOG */
-    .log-area {
-      flex: 1;
-      padding: 14px;
-      font-size: 0.68rem;
-      color: #003310;
-      overflow-y: auto;
-      min-height: 150px;
+    /* BOTTOM BAR */
+    .bottom-bar {
+      background: #020a02;
+      border-top: 1px solid #0a1f0a;
+      padding: 8px 16px;
+      display: flex; gap: 10px; justify-content: center;
+      flex-shrink: 0;
     }
-    .log-line { margin-bottom: 3px; }
-    .log-line.g { color: var(--green); }
-    .log-line.b { color: var(--blue); }
-    .log-line.y { color: var(--yellow); }
-    .log-line.r { color: var(--red); }
+    .btn {
+      padding: 8px 24px;
+      font-family: 'Orbitron', monospace;
+      font-size: 0.7rem; letter-spacing: 2px;
+      border: none; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-start { background: #00ff41; color: #000; font-weight: 700; }
+    .btn-start:hover { background: #fff; }
+    .btn-stop { background: transparent; border: 1px solid #ff0033; color: #ff0033; }
+    .btn-stop:hover { background: rgba(255,0,51,0.1); }
+    .btn-flip { background: transparent; border: 1px solid #00aaff; color: #00aaff; }
+    .btn-flip:hover { background: rgba(0,170,255,0.1); }
 
     /* STATUSBAR */
     .statusbar {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      background: var(--green); color: #000;
-      font-size: 0.65rem; padding: 3px 20px;
+      background: #00ff41; color: #000;
+      font-size: 0.62rem; padding: 2px 16px;
       display: flex; justify-content: space-between;
-      letter-spacing: 2px; z-index: 200;
-    }
-
-    /* LOADING */
-    .loading-overlay {
-      position: absolute; inset: 0;
-      background: rgba(0,0,0,0.9);
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      z-index: 50;
-    }
-    .loading-title { font-family: 'Orbitron', monospace; font-size: 1rem; color: var(--green); letter-spacing: 4px; margin-bottom: 16px; }
-    .loading-bar-wrap { width: 200px; height: 6px; background: #001100; border: 1px solid var(--green); }
-    .loading-bar { height: 100%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: loadAnim 2s ease forwards; }
-    @keyframes loadAnim { from{width:0}to{width:100%} }
-    .loading-sub { font-size: 0.7rem; color: #004410; margin-top: 10px; letter-spacing: 2px; }
-
-    @media(max-width: 700px) {
-      .main { grid-template-columns: 1fr; grid-template-rows: auto auto; }
-      .sidebar { border-left: none; border-top: 1px solid var(--border); max-height: 400px; }
-      .video-wrap { min-height: 280px; }
+      letter-spacing: 2px; flex-shrink: 0;
     }
   </style>
 </head>
 <body>
 
-  <!-- TOPBAR -->
-  <div class="topbar">
-    <div class="logo">ANDRE<span>_VISION</span></div>
-    <div class="topbar-right">
-      <span><span class="status-dot"></span>AI READY</span>
-      <span id="clock"></span>
-    </div>
+<div class="topbar">
+  <div class="logo">ANDRE<span>_VISION</span> // FACE</div>
+  <div class="topbar-right">
+    <span><span class="dot"></span>READY</span>
+    <span id="clock"></span>
+  </div>
+</div>
+
+<div class="cam-wrap" id="camWrap">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="overlay"></canvas>
+
+  <div class="hud hud-tl"></div>
+  <div class="hud hud-tr"></div>
+  <div class="hud hud-bl"></div>
+  <div class="hud hud-br"></div>
+  <div class="fps" id="fps">FPS: --</div>
+
+  <div class="placeholder" id="placeholder">
+    <div class="icon">📷</div>
+    <p>TAP START</p>
+    <p style="font-size:0.65rem;opacity:0.5">IZINKAN AKSES KAMERA</p>
   </div>
 
-  <div class="main">
-
-    <!-- CAMERA -->
-    <div class="camera-section">
-      <div class="camera-header">
-        <span class="camera-title">📡 LIVE DETECTION FEED</span>
-        <div class="cam-btns">
-          <button class="cam-btn btn-start" onclick="startCamera()">▶ START</button>
-          <button class="cam-btn btn-stop" onclick="stopCamera()">⏹ STOP</button>
-        </div>
-      </div>
-      <div class="video-wrap" id="videoWrap">
-        <video id="video" autoplay playsinline muted></video>
-        <canvas id="canvas"></canvas>
-
-        <!-- HUD corners -->
-        <div class="hud-corner hud-tl"></div>
-        <div class="hud-corner hud-tr"></div>
-        <div class="hud-corner hud-bl"></div>
-        <div class="hud-corner hud-br"></div>
-        <div class="fps-display" id="fpsDisplay">FPS: --</div>
-
-        <div class="cam-placeholder" id="placeholder">
-          <div class="icon">📷</div>
-          <p>TEKAN START UNTUK MULAI</p>
-          <p style="margin-top:8px;font-size:0.65rem;opacity:0.5">IZINKAN AKSES KAMERA</p>
-        </div>
-      </div>
+  <!-- LIVE INFO -->
+  <div class="info-overlay" id="infoOverlay" style="display:none">
+    <div class="info-item">
+      <span class="info-label">FACE</span>
+      <span class="info-val" id="iDetected">NO</span>
     </div>
-
-    <!-- SIDEBAR -->
-    <div class="sidebar">
-
-      <!-- FACE INFO -->
-      <div class="panel">
-        <div class="panel-title"><span class="panel-dot dot-green"></span>FACE DETECTION</div>
-        <div class="info-row"><span class="info-label">DETECTED</span><span class="info-val" id="faceDetected">NO</span></div>
-        <div class="info-row"><span class="info-label">FACES</span><span class="info-val" id="faceCount">0</span></div>
-        <div class="info-row"><span class="info-label">CONFIDENCE</span><span class="info-val" id="faceConf">--</span></div>
-        <div class="info-row"><span class="info-label">POSITION</span><span class="info-val blue" id="facePos">--</span></div>
-        <div class="info-row"><span class="info-label">SIZE</span><span class="info-val blue" id="faceSize">--</span></div>
-      </div>
-
-      <!-- HAND INFO -->
-      <div class="panel">
-        <div class="panel-title"><span class="panel-dot dot-blue"></span>HAND TRACKING</div>
-        <div class="info-row"><span class="info-label">DETECTED</span><span class="info-val" id="handDetected">NO</span></div>
-        <div class="info-row"><span class="info-label">HANDS</span><span class="info-val" id="handCount">0</span></div>
-        <div class="info-row"><span class="info-label">HANDEDNESS</span><span class="info-val blue" id="handSide">--</span></div>
-        <div class="info-row"><span class="info-label">FINGERS UP</span><span class="info-val yellow" id="fingersUp">--</span></div>
-        <div class="info-row"><span class="info-label">GESTURE</span><span class="info-val yellow" id="gesture">--</span></div>
-      </div>
-
-      <!-- POSE INFO -->
-      <div class="panel">
-        <div class="panel-title"><span class="panel-dot dot-yellow"></span>POSE DETECTION</div>
-        <div class="info-row"><span class="info-label">DETECTED</span><span class="info-val" id="poseDetected">NO</span></div>
-        <div class="info-row"><span class="info-label">CONFIDENCE</span><span class="info-val" id="poseConf">--</span></div>
-        <div class="info-row"><span class="info-label">POSTURE</span><span class="info-val yellow" id="posture">--</span></div>
-        <canvas class="skeleton-mini" id="skelMini"></canvas>
-      </div>
-
-      <!-- COLOR INFO -->
-      <div class="panel">
-        <div class="panel-title"><span class="panel-dot dot-red"></span>COLOR ANALYSIS</div>
-        <div class="color-swatch" id="colorSwatch">--</div>
-        <div class="info-row"><span class="info-label">RGB</span><span class="info-val red" id="colorRGB">--</span></div>
-        <div class="info-row"><span class="info-label">HEX</span><span class="info-val red" id="colorHEX">--</span></div>
-        <div class="info-row"><span class="info-label">TONE</span><span class="info-val red" id="skinTone">--</span></div>
-        <div class="info-row"><span class="info-label">BRIGHTNESS</span><span class="info-val" id="brightness">--</span></div>
-      </div>
-
-      <!-- LOG -->
-      <div class="log-area" id="logArea">
-        <div class="log-line g">> ANDRE_VISION v1.0 LOADED</div>
-        <div class="log-line">> Waiting for camera input...</div>
-      </div>
-
+    <div class="info-item">
+      <span class="info-label">CONF</span>
+      <span class="info-val blue" id="iConf">--</span>
+    </div>
+    <div class="info-item">
+      <span class="info-label">POS</span>
+      <span class="info-val blue" id="iPos">--</span>
+    </div>
+    <div class="info-item">
+      <span class="swatch" id="swatch"></span>
+      <span class="info-val red" id="iColor">--</span>
+    </div>
+    <div class="info-item">
+      <span class="info-label">TONE</span>
+      <span class="info-val yellow" id="iTone">--</span>
     </div>
   </div>
+</div>
 
-  <div class="statusbar">
-    <span>ANDRE_VISION // AI DETECTOR</span>
-    <span id="statusText">IDLE</span>
-  </div>
+<div class="bottom-bar">
+  <button class="btn btn-start" onclick="startCam()">▶ START</button>
+  <button class="btn btn-flip" onclick="flipCam()">🔄 FLIP</button>
+  <button class="btn btn-stop" onclick="stopCam()">⏹ STOP</button>
+</div>
+
+<div class="statusbar">
+  <span>ANDRE_VISION // FACE DETECTION</span>
+  <span id="status">IDLE</span>
+</div>
 
 <script>
   // CLOCK
   setInterval(() => { document.getElementById('clock').textContent = new Date().toLocaleTimeString(); }, 1000);
 
-  let stream = null;
-  let animFrame = null;
-  let faceDetection = null, hands = null, pose = null;
-  let lastFPS = 0, frameCount = 0, lastTime = Date.now();
-  let isRunning = false;
-
   const video = document.getElementById('video');
-  const canvas = document.getElementById('canvas');
+  const canvas = document.getElementById('overlay');
   const ctx = canvas.getContext('2d');
+  let stream = null, detector = null, running = false;
+  let facingMode = 'user';
+  let frameCount = 0, lastTime = Date.now(), fps = 0;
+  let lastResults = null;
 
-  function log(msg, type='') {
-    const area = document.getElementById('logArea');
-    const div = document.createElement('div');
-    div.className = 'log-line ' + type;
-    div.textContent = '> ' + msg;
-    area.appendChild(div);
-    area.scrollTop = area.scrollHeight;
-    if(area.children.length > 50) area.removeChild(area.children[0]);
+  // INIT FACE DETECTION
+  function initDetector() {
+    detector = new FaceDetection({
+      locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${f}`
+    });
+    detector.setOptions({ model: 'short', minDetectionConfidence: 0.5 });
+    detector.onResults(onResults);
   }
 
-  // ══ MEDIAPIPE SETUP ══
-  let faceResults = null, handResults = null, poseResults = null;
-
-  function initModels() {
-    log('Loading face detection...', 'g');
-    faceDetection = new FaceDetection({locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${f}`});
-    faceDetection.setOptions({ model: 'short', minDetectionConfidence: 0.5 });
-    faceDetection.onResults(r => { faceResults = r; });
-
-    log('Loading hand tracking...', 'b');
-    hands = new Hands({locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
-    hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.6, minTrackingConfidence: 0.5 });
-    hands.onResults(r => { handResults = r; });
-
-    log('Loading pose detection...', 'y');
-    pose = new Pose({locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`});
-    pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-    pose.onResults(r => { poseResults = r; });
-
-    log('All models ready!', 'g');
+  function onResults(results) {
+    lastResults = results;
   }
 
-  async function startCamera() {
+  async function startCam() {
     try {
       document.getElementById('placeholder').style.display = 'none';
-      log('Requesting camera access...', 'g');
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 }, audio: false });
+      document.getElementById('infoOverlay').style.display = 'flex';
+      document.getElementById('status').textContent = 'LOADING...';
+
+      if(stream) stream.getTracks().forEach(t => t.stop());
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode, width: 480, height: 640 },
+        audio: false
+      });
       video.srcObject = stream;
       video.style.display = 'block';
       await video.play();
-      initModels();
-      isRunning = true;
-      document.getElementById('statusText').textContent = 'DETECTING...';
-      log('Camera started!', 'g');
-      renderLoop();
+
+      if(!detector) initDetector();
+      running = true;
+      document.getElementById('status').textContent = 'DETECTING...';
+      loop();
     } catch(e) {
-      log('Camera error: ' + e.message, 'r');
-      document.getElementById('statusText').textContent = 'CAM ERROR';
+      document.getElementById('status').textContent = 'CAM ERROR';
+      alert('Izinkan akses kamera bro! ' + e.message);
     }
   }
 
-  function stopCamera() {
-    isRunning = false;
+  function stopCam() {
+    running = false;
     if(stream) stream.getTracks().forEach(t => t.stop());
     video.style.display = 'none';
-    if(animFrame) cancelAnimationFrame(animFrame);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     document.getElementById('placeholder').style.display = 'flex';
-    document.getElementById('statusText').textContent = 'IDLE';
-    log('Camera stopped.', 'r');
+    document.getElementById('infoOverlay').style.display = 'none';
+    document.getElementById('status').textContent = 'IDLE';
+    document.getElementById('iDetected').textContent = 'NO';
+    document.getElementById('fps').textContent = 'FPS: --';
   }
 
-  // ══ MAIN RENDER LOOP ══
-  let frameSkip = 0;
-  async function renderLoop() {
-    if(!isRunning) return;
+  async function flipCam() {
+    facingMode = facingMode === 'user' ? 'environment' : 'user';
+    if(running) await startCam();
+  }
 
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
+  let skipFrame = 0;
+  async function loop() {
+    if(!running) return;
 
-    // Draw video frame
+    // Resize canvas
+    canvas.width = video.videoWidth || 480;
+    canvas.height = video.videoHeight || 640;
+
+    // Draw video
     ctx.save();
     ctx.scale(-1, 1);
     ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
     ctx.restore();
 
-    // Run detections every 3 frames for performance
-    frameSkip++;
-    if(frameSkip % 2 === 0) {
-      try {
-        await faceDetection.send({image: video});
-        await hands.send({image: video});
-        if(frameSkip % 4 === 0) await pose.send({image: video});
-      } catch(e) {}
+    // Run detection every 2 frames
+    skipFrame++;
+    if(skipFrame % 2 === 0) {
+      try { await detector.send({image: video}); } catch(e) {}
     }
 
-    // DRAW RESULTS
-    drawFaceResults();
-    drawHandResults();
-    drawPoseResults();
-    analyzeColor();
+    // Draw results
+    if(lastResults) drawResults(lastResults);
 
     // FPS
     frameCount++;
     const now = Date.now();
-    if(now - lastTime > 1000) {
-      lastFPS = frameCount;
-      frameCount = 0;
-      lastTime = now;
-      document.getElementById('fpsDisplay').textContent = 'FPS: ' + lastFPS;
+    if(now - lastTime >= 1000) {
+      fps = frameCount; frameCount = 0; lastTime = now;
+      document.getElementById('fps').textContent = 'FPS: ' + fps;
     }
 
-    animFrame = requestAnimationFrame(renderLoop);
+    requestAnimationFrame(loop);
   }
 
-  // ══ FACE DETECTION ══
-  function drawFaceResults() {
-    if(!faceResults || !faceResults.detections) return;
-    const dets = faceResults.detections;
+  function drawResults(results) {
+    const dets = results.detections || [];
 
-    document.getElementById('faceDetected').textContent = dets.length > 0 ? 'YES ✓' : 'NO';
-    document.getElementById('faceDetected').className = 'info-val' + (dets.length > 0 ? ' blue' : '');
-    document.getElementById('faceCount').textContent = dets.length;
+    if(dets.length === 0) {
+      document.getElementById('iDetected').textContent = 'NO';
+      document.getElementById('iConf').textContent = '--';
+      document.getElementById('iPos').textContent = '--';
+      return;
+    }
+
+    document.getElementById('iDetected').textContent = 'YES ✓';
 
     dets.forEach(det => {
       const box = det.boundingBox;
@@ -458,256 +319,94 @@
       const y = box.yCenter * canvas.height - (box.height * canvas.height) / 2;
       const w = box.width * canvas.width;
       const h = box.height * canvas.height;
+      const conf = Math.round(det.score[0] * 100);
 
-      // Draw box
-      ctx.strokeStyle = '#00ff41';
-      ctx.lineWidth = 2;
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = '#00ff41';
+      // Glow box
+      ctx.shadowBlur = 16; ctx.shadowColor = '#00ff41';
+      ctx.strokeStyle = '#00ff41'; ctx.lineWidth = 2;
       ctx.strokeRect(x, y, w, h);
       ctx.shadowBlur = 0;
 
-      // Corner accents
-      const cs = 12;
-      ctx.lineWidth = 3;
-      [[x,y],[x+w,y],[x,y+h],[x+w,y+h]].forEach(([cx,cy], i) => {
+      // Corner brackets
+      const cs = 16; ctx.lineWidth = 3;
+      ctx.strokeStyle = '#00ff41';
+      [
+        [x, y, cs, 0, 0, cs],
+        [x+w, y, -cs, 0, 0, cs],
+        [x, y+h, cs, 0, 0, -cs],
+        [x+w, y+h, -cs, 0, 0, -cs]
+      ].forEach(([px, py, dx1, dy1, dx2, dy2]) => {
         ctx.beginPath();
-        ctx.moveTo(cx + (i%2===0?cs:-cs), cy);
-        ctx.lineTo(cx, cy);
-        ctx.lineTo(cx, cy + (i<2?cs:-cs));
+        ctx.moveTo(px+dx1, py+dy1);
+        ctx.lineTo(px, py);
+        ctx.lineTo(px+dx2, py+dy2);
         ctx.stroke();
       });
 
-      // Label
-      ctx.fillStyle = 'rgba(0,255,65,0.15)';
-      ctx.fillRect(x, y - 22, 120, 20);
+      // Label bg
+      ctx.fillStyle = 'rgba(0,20,0,0.8)';
+      ctx.fillRect(x, y - 24, w, 22);
       ctx.fillStyle = '#00ff41';
-      ctx.font = '11px Share Tech Mono';
-      ctx.fillText('FACE ' + Math.round(det.score[0]*100) + '%', x + 4, y - 6);
-
-      // Keypoints
-      det.landmarks.forEach(lm => {
-        ctx.beginPath();
-        ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 3, 0, Math.PI*2);
-        ctx.fillStyle = '#00ffff';
-        ctx.shadowBlur = 6; ctx.shadowColor = '#00ffff';
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      });
-
-      // Update sidebar
-      document.getElementById('faceConf').textContent = Math.round(det.score[0]*100) + '%';
-      document.getElementById('facePos').textContent = Math.round(box.xCenter*100) + '%, ' + Math.round(box.yCenter*100) + '%';
-      document.getElementById('faceSize').textContent = Math.round(w) + 'x' + Math.round(h) + 'px';
-
-      if(frameSkip % 30 === 0) log('Face detected (' + Math.round(det.score[0]*100) + '% confidence)', 'g');
-    });
-
-    if(dets.length === 0) {
-      document.getElementById('faceConf').textContent = '--';
-      document.getElementById('facePos').textContent = '--';
-      document.getElementById('faceSize').textContent = '--';
-    }
-  }
-
-  // ══ HAND TRACKING ══
-  const HAND_CONNECTIONS = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
-
-  function drawHandResults() {
-    if(!handResults || !handResults.multiHandLandmarks) return;
-    const landmarks = handResults.multiHandLandmarks;
-    const handedness = handResults.multiHandedness;
-
-    document.getElementById('handDetected').textContent = landmarks.length > 0 ? 'YES ✓' : 'NO';
-    document.getElementById('handCount').textContent = landmarks.length;
-
-    landmarks.forEach((lms, idx) => {
-      const side = handedness[idx]?.label || '?';
-      document.getElementById('handSide').textContent = side.toUpperCase();
-
-      // Draw connections
-      ctx.strokeStyle = '#00aaff';
-      ctx.lineWidth = 2;
-      ctx.shadowBlur = 8; ctx.shadowColor = '#00aaff';
-      HAND_CONNECTIONS.forEach(([a, b]) => {
-        ctx.beginPath();
-        ctx.moveTo(lms[a].x * canvas.width, lms[a].y * canvas.height);
-        ctx.lineTo(lms[b].x * canvas.width, lms[b].y * canvas.height);
-        ctx.stroke();
-      });
+      ctx.font = 'bold 11px Share Tech Mono';
+      ctx.shadowBlur = 6; ctx.shadowColor = '#00ff41';
+      ctx.fillText(`FACE DETECTED  ${conf}%`, x + 6, y - 7);
       ctx.shadowBlur = 0;
 
-      // Draw joints
-      lms.forEach((lm, i) => {
+      // Keypoints
+      const colors = ['#00ffff','#ff00ff','#ffff00','#ff8800','#00ff88','#ff0044'];
+      det.landmarks.forEach((lm, i) => {
+        const lx = lm.x * canvas.width;
+        const ly = lm.y * canvas.height;
         ctx.beginPath();
-        ctx.arc(lm.x * canvas.width, lm.y * canvas.height, i === 0 ? 6 : 4, 0, Math.PI*2);
-        ctx.fillStyle = i === 0 ? '#ffffff' : '#00aaff';
-        ctx.shadowBlur = 6; ctx.shadowColor = '#00aaff';
+        ctx.arc(lx, ly, 4, 0, Math.PI*2);
+        ctx.fillStyle = colors[i] || '#fff';
+        ctx.shadowBlur = 8; ctx.shadowColor = colors[i] || '#fff';
         ctx.fill();
         ctx.shadowBlur = 0;
       });
 
-      // Finger count
-      const fingers = countFingers(lms, side);
-      document.getElementById('fingersUp').textContent = fingers.count + '/5';
-      document.getElementById('gesture').textContent = fingers.gesture;
-
-      // Label
-      ctx.fillStyle = '#00aaff';
-      ctx.font = '11px Share Tech Mono';
-      ctx.fillText(side.toUpperCase() + ' HAND | ' + fingers.gesture, lms[0].x * canvas.width - 20, lms[0].y * canvas.height - 10);
-
-      if(frameSkip % 30 === 0) log('Hand: ' + side + ' | ' + fingers.gesture, 'b');
-    });
-
-    if(landmarks.length === 0) {
-      document.getElementById('handSide').textContent = '--';
-      document.getElementById('fingersUp').textContent = '--';
-      document.getElementById('gesture').textContent = '--';
-    }
-  }
-
-  function countFingers(lms, side) {
-    const tips = [4, 8, 12, 16, 20];
-    const bases = [3, 6, 10, 14, 18];
-    let count = 0;
-    const isRight = side === 'Right';
-
-    // Thumb
-    if(isRight ? lms[4].x < lms[3].x : lms[4].x > lms[3].x) count++;
-    // Other fingers
-    for(let i = 1; i < 5; i++) {
-      if(lms[tips[i]].y < lms[bases[i]].y) count++;
-    }
-
-    let gesture = count + ' finger' + (count !== 1 ? 's' : '');
-    if(count === 0) gesture = '✊ FIST';
-    else if(count === 1) gesture = '☝️ POINT';
-    else if(count === 2) gesture = '✌️ PEACE';
-    else if(count === 5) gesture = '🖐️ OPEN';
-    else if(count === 3) gesture = '🤟 THREE';
-
-    return { count, gesture };
-  }
-
-  // ══ POSE DETECTION ══
-  const POSE_CONNECTIONS = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[24,26],[25,27],[26,28]];
-
-  function drawPoseResults() {
-    if(!poseResults || !poseResults.poseLandmarks) return;
-    const lms = poseResults.poseLandmarks;
-
-    document.getElementById('poseDetected').textContent = 'YES ✓';
-    document.getElementById('poseConf').textContent = Math.round((lms[0].visibility || 0) * 100) + '%';
-
-    // Draw on main canvas
-    ctx.strokeStyle = '#ffcc00';
-    ctx.lineWidth = 2;
-    ctx.shadowBlur = 8; ctx.shadowColor = '#ffcc00';
-    POSE_CONNECTIONS.forEach(([a, b]) => {
-      if(lms[a].visibility > 0.5 && lms[b].visibility > 0.5) {
+      // Face mesh grid (simplified)
+      ctx.strokeStyle = 'rgba(0,255,65,0.08)';
+      ctx.lineWidth = 1;
+      for(let i=0; i<4; i++) {
         ctx.beginPath();
-        ctx.moveTo(lms[a].x * canvas.width, lms[a].y * canvas.height);
-        ctx.lineTo(lms[b].x * canvas.width, lms[b].y * canvas.height);
+        ctx.moveTo(x, y + (h/4)*i);
+        ctx.lineTo(x+w, y + (h/4)*i);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x + (w/4)*i, y);
+        ctx.lineTo(x + (w/4)*i, y+h);
         ctx.stroke();
       }
-    });
-    ctx.shadowBlur = 0;
 
-    lms.forEach((lm, i) => {
-      if(lm.visibility > 0.5) {
-        ctx.beginPath();
-        ctx.arc(lm.x * canvas.width, lm.y * canvas.height, 4, 0, Math.PI*2);
-        ctx.fillStyle = '#ffcc00';
-        ctx.fill();
-      }
-    });
+      // UPDATE SIDEBAR
+      document.getElementById('iConf').textContent = conf + '%';
+      document.getElementById('iPos').textContent =
+        Math.round(box.xCenter*100) + '%, ' + Math.round(box.yCenter*100) + '%';
 
-    // Posture analysis
-    const posture = analyzePosure(lms);
-    document.getElementById('posture').textContent = posture;
-
-    // Mini skeleton
-    drawMiniSkeleton(lms);
-  }
-
-  function analyzePosure(lms) {
-    if(!lms[11] || !lms[12]) return 'UNKNOWN';
-    const shoulderDiff = Math.abs(lms[11].y - lms[12].y);
-    if(shoulderDiff > 0.05) return '↗ TILTED';
-    if(lms[0] && lms[23] && lms[0].y < lms[23].y - 0.3) return '✓ UPRIGHT';
-    return '↓ SLOUCHING';
-  }
-
-  function drawMiniSkeleton(lms) {
-    const mc = document.getElementById('skelMini');
-    const mx = mc.getContext('2d');
-    mc.width = mc.offsetWidth; mc.height = mc.offsetHeight;
-    mx.fillStyle = '#000';
-    mx.fillRect(0, 0, mc.width, mc.height);
-    mx.strokeStyle = '#ffcc00';
-    mx.lineWidth = 1.5;
-    POSE_CONNECTIONS.forEach(([a, b]) => {
-      if(lms[a] && lms[b] && lms[a].visibility > 0.5 && lms[b].visibility > 0.5) {
-        mx.beginPath();
-        mx.moveTo(lms[a].x * mc.width, lms[a].y * mc.height * 1.5);
-        mx.lineTo(lms[b].x * mc.width, lms[b].y * mc.height * 1.5);
-        mx.stroke();
-      }
-    });
-    lms.forEach(lm => {
-      if(lm.visibility > 0.5) {
-        mx.beginPath();
-        mx.arc(lm.x * mc.width, lm.y * mc.height * 1.5, 2, 0, Math.PI*2);
-        mx.fillStyle = '#ffcc00';
-        mx.fill();
-      }
+      // COLOR SAMPLE
+      analyzeColor(x, y, w, h);
     });
   }
 
-  // ══ COLOR ANALYSIS ══
-  function analyzeColor() {
-    if(!faceResults || !faceResults.detections || faceResults.detections.length === 0) return;
+  function analyzeColor(x, y, w, h) {
     try {
-      const det = faceResults.detections[0];
-      const box = det.boundingBox;
-      const cx = (1 - box.xCenter) * canvas.width;
-      const cy = box.yCenter * canvas.height;
-      const pw = Math.max(1, box.width * canvas.width * 0.3);
-      const ph = Math.max(1, box.height * canvas.height * 0.3);
-
-      const imgData = ctx.getImageData(Math.max(0, cx - pw/2), Math.max(0, cy - ph/2), pw, ph);
-      const data = imgData.data;
-      let r=0, g=0, b=0, count=0;
-      for(let i=0; i<data.length; i+=16) {
-        r += data[i]; g += data[i+1]; b += data[i+2]; count++;
-      }
-      if(count === 0) return;
-      r = Math.round(r/count); g = Math.round(g/count); b = Math.round(b/count);
-
-      const hex = '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
-      const brightness = Math.round((r*299 + g*587 + b*114) / 1000);
-      const tone = getSkinTone(r, g, b);
-
-      document.getElementById('colorRGB').textContent = `${r}, ${g}, ${b}`;
-      document.getElementById('colorHEX').textContent = hex.toUpperCase();
-      document.getElementById('skinTone').textContent = tone;
-      document.getElementById('brightness').textContent = brightness + '/255';
-      const swatch = document.getElementById('colorSwatch');
-      swatch.style.background = hex;
-      swatch.style.color = brightness > 128 ? '#000' : '#fff';
-      swatch.textContent = hex.toUpperCase();
+      const sx = Math.max(0, Math.round((canvas.width - x - w/2) - w*0.1));
+      const sy = Math.max(0, Math.round(y + h*0.2));
+      const sw = Math.max(1, Math.round(w * 0.2));
+      const sh = Math.max(1, Math.round(h * 0.2));
+      const data = ctx.getImageData(sx, sy, sw, sh).data;
+      let r=0,g=0,b=0,c=0;
+      for(let i=0;i<data.length;i+=4){r+=data[i];g+=data[i+1];b+=data[i+2];c++;}
+      if(!c) return;
+      r=Math.round(r/c); g=Math.round(g/c); b=Math.round(b/c);
+      const hex='#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+      const br=Math.round((r*299+g*587+b*114)/1000);
+      const tone = br>200?'VERY LIGHT':br>160?'LIGHT':br>120?'MEDIUM':br>80?'MEDIUM DARK':br>50?'DARK':'VERY DARK';
+      document.getElementById('iColor').textContent = hex.toUpperCase();
+      document.getElementById('iTone').textContent = tone;
+      document.getElementById('swatch').style.background = hex;
     } catch(e) {}
-  }
-
-  function getSkinTone(r, g, b) {
-    const brightness = (r + g + b) / 3;
-    if(brightness > 200) return 'VERY LIGHT';
-    if(brightness > 160) return 'LIGHT';
-    if(brightness > 120) return 'MEDIUM';
-    if(brightness > 80) return 'MEDIUM DARK';
-    if(brightness > 50) return 'DARK';
-    return 'VERY DARK';
   }
 </script>
 </body>
